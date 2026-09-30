@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { 
-  Calendar, Trophy, User, Settings, Users, Home, 
+  Calendar, Trophy, User, Settings, Users, 
   MapPin, Award, Plus, Shuffle, Share2, 
   CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye, X, LogOut, LogIn, Phone, Hash
 } from 'lucide-react';
@@ -10,7 +10,7 @@ import {
 const EVENTOS_INICIALES = [
   {
     id: 1,
-    titulo: 'Pozo Sube-Baja Fin de Semana',
+    titulo: 'Pozo sábado de octubre',
     tipo: 'Pozo',
     fecha: 'Sábado, 11 Oct • 10:00h',
     club: 'Club Pádel Center',
@@ -20,7 +20,7 @@ const EVENTOS_INICIALES = [
   },
   {
     id: 2,
-    titulo: 'Torneo Express Club',
+    titulo: 'Torneo otoño nivel 4',
     tipo: 'Torneo',
     fecha: '24-26 Oct • Cat. Abierta',
     club: 'Pádel Indoor Madrid',
@@ -51,8 +51,14 @@ export default function PadelApp() {
     club: 'Pádel Club Central'
   });
 
-  const [activeTab, setActiveTab] = useState<'inicio' | 'eventos' | 'pistas' | 'rankings' | 'admin' | 'perfil'>('inicio');
+  const [activeTab, setActiveTab] = useState<'inicio' | 'eventos' | 'pistas' | 'rankings' | 'fantasy' | 'admin' | 'perfil'>('inicio');
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
+
+  // Fantasy de Pádel: minijuego local para el prototipo.
+  const [fantasyEquipo, setFantasyEquipo] = useState<string[]>(['1', '2', '3', '4']);
+  const [fantasyPresupuesto, setFantasyPresupuesto] = useState(100);
+  const [jugadorSeleccionadoPista, setJugadorSeleccionadoPista] = useState(0);
+
 
   // Mapa de inscripciones: { [eventoId]: nombrePareja }
   const [inscritosMap, setInscritosMap] = useState<{[key: number]: string}>({ 1: 'Lidia Martin' });
@@ -61,6 +67,7 @@ export default function PadelApp() {
   const [nombreParejaInput, setNombreParejaInput] = useState('');
 
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
+  const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
   const [faseTorneo, setFaseTorneo] = useState<'grupos' | 'principal' | 'consolacion'>('grupos');
 
   // Seguridad Organizador
@@ -74,17 +81,6 @@ export default function PadelApp() {
   const [nuevoTipoEvento, setNuevoTipoEvento] = useState('Pozo');
   const [nuevoClubEvento, setNuevoClubEvento] = useState('Club Pádel Center');
   const [nuevoPrecioEvento, setNuevoPrecioEvento] = useState('12');
-  const [nuevoPlazasEvento, setNuevoPlazasEvento] = useState('16');
-  const [nuevoFechaEvento, setNuevoFechaEvento] = useState('');
-
-  // Participantes y sorteos: los datos del organizador alimentan partidos y ranking.
-  const [participantesPorEvento, setParticipantesPorEvento] = useState<{[key: number]: string[]}>({
-    1: ['Felix Gomez', 'Lidia Martin', 'Angel Ruiz', 'Rober Sanchez'],
-    2: ['Felix Gomez', 'Lidia Martin', 'Angel Ruiz', 'Rober Sanchez'],
-  });
-  const [eventoOrganizadorId, setEventoOrganizadorId] = useState<number>(1);
-  const [nuevoJugadorEvento, setNuevoJugadorEvento] = useState('');
-  const [resultadosPartidos, setResultadosPartidos] = useState<{[key: string]: string}>({});
 
   const [pistas, setPistas] = useState([
     { numero: 1, nombre: 'Pista 1 • Central', parej1: ['Felix Gomez', 'Lidia Martin'], pareja2: ['Angel Ruiz', 'Rober Sanchez'] },
@@ -236,18 +232,15 @@ export default function PadelApp() {
       id: Date.now(),
       titulo: nuevoTituloEvento.trim(),
       tipo: nuevoTipoEvento,
-      fecha: nuevoFechaEvento.trim() || 'Próxima fecha • Por definir',
+      fecha: 'Próxima fecha • Por definir',
       club: nuevoClubEvento,
-      plazas_totales: parseInt(nuevoPlazasEvento) || 16,
+      plazas_totales: 16,
       plazas_ocupadas: 0,
       precioUnitario: parseInt(nuevoPrecioEvento) || 10,
     };
 
     setEventos([...eventos, nuevoEv]);
-    setParticipantesPorEvento(prev => ({ ...prev, [nuevoEv.id]: [] }));
-    setEventoOrganizadorId(nuevoEv.id);
     setNuevoTituloEvento('');
-    setNuevoFechaEvento('');
     setMensajeExito('¡Nuevo evento publicado!');
     setTimeout(() => setMensajeExito(''), 3000);
   };
@@ -281,7 +274,7 @@ export default function PadelApp() {
   };
 
   const compartirEvento = (evento: any) => {
-    const texto = `🎾 *${evento.titulo.toUpperCase()}* 🎾\n📅 ${evento.fecha}\n📍 ${evento.club}\n\n👉 ¡Apúntate al evento!`;
+    const texto = `🎾 *${evento.titulo.toUpperCase()}* 🎾\n📅 ${evento.fecha}\n📍 ${evento.club}\n\n👉 ¡Apúntate desde Padel Arena!`;
     if (navigator.share) {
       navigator.share({ title: evento.titulo, text: texto, url: window.location.href }).catch(() => {});
     } else {
@@ -289,49 +282,64 @@ export default function PadelApp() {
     }
   };
 
-  const rankingOrdenado = [...ranking].sort((a, b) => (b.puntosPozos + b.puntosTorneos) - (a.puntosPozos + a.puntosTorneos));
+  const fantasyJugadores = ranking.map((j, i) => ({
+    ...j,
+    valor: Number((18 + j.nivel * 5 + i * 1.5).toFixed(1)),
+    fantasyPts: Math.round(j.puntosPozos * 0.08 + j.puntosTorneos * 0.1 + (j.racha.endsWith('W') ? 12 : 0)),
+  }));
+  const fantasySeleccionados = fantasyJugadores.filter(j => fantasyEquipo.includes(j.id));
+  const fantasyGastado = fantasySeleccionados.reduce((sum, j) => sum + j.valor, 0);
+  const fantasyPts = fantasySeleccionados.reduce((sum, j) => sum + j.fantasyPts, 0);
+
+  const rankingOrdenado = [...ranking].sort((a, b) => {
+    if (tipoRanking === 'pozos') {
+      return b.puntosPozos - a.puntosPozos;
+    } else {
+      return b.puntosTorneos - a.puntosTorneos;
+    }
+  });
 
   // 1. PANTALLA DE LOGIN NORMAL (USUARIO Y CONTRASEÑA)
   if (authStep === 'login') {
     return (
-      <div className="min-h-screen bg-[#0b1727] text-slate-100 font-sans p-5 max-w-6xl mx-auto flex flex-col justify-center items-center border-x border-white/5 shadow-2xl">
+      <div className="min-h-screen bg-[#f4f7f5] text-slate-900 font-sans p-5 max-w-md mx-auto flex flex-col justify-center items-center border-x border-slate-200 shadow-2xl">
         <div className="w-full space-y-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-black tracking-wider text-white uppercase">
-              Eventos de Pádel
+            <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">
+              Padel Arena
             </h1>
-            <p className="text-xs text-cyan-200">Introduce tus credenciales de acceso</p>
+            <p className="text-xs text-slate-500">Introduce tus credenciales de acceso</p>
           </div>
 
-          <div className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
+          <div className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-6 space-y-4 shadow-xl">
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Usuario o Correo</label>
+                <label className="block text-[11px] text-slate-500 font-bold uppercase mb-1.5">Usuario o Correo</label>
                 <input
                   type="text"
                   placeholder="usuario@clubpadel.com"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
                   required
-                  className="w-full bg-[#0b1727] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Contraseña</label>
+                <label className="block text-[11px] text-slate-500 font-bold uppercase mb-1.5">Contraseña</label>
                 <input
                   type="password"
                   placeholder="••••••••"
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   required
-                  className="w-full bg-[#0b1727] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-lime-300 hover:bg-lime-200 text-slate-950 font-black py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
               >
                 <LogIn className="w-4 h-4" /> Iniciar Sesión
               </button>
@@ -345,49 +353,49 @@ export default function PadelApp() {
   // 2. PANTALLA DE CONFIGURACIÓN DE PERFIL INICIAL
   if (authStep === 'perfil_setup') {
     return (
-      <div className="min-h-screen bg-[#0b1727] text-slate-100 font-sans p-5 max-w-6xl mx-auto flex flex-col justify-center items-center border-x border-white/5 shadow-2xl">
+      <div className="min-h-screen bg-[#f4f7f5] text-slate-900 font-sans p-5 max-w-md mx-auto flex flex-col justify-center items-center border-x border-slate-200 shadow-2xl">
         <div className="w-full space-y-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="text-center space-y-2">
-            <h1 className="text-xl font-black tracking-wider text-white uppercase">
+            <h1 className="text-xl font-black tracking-wider text-slate-900 uppercase">
               Completa tu Perfil de Jugador
             </h1>
-            <p className="text-xs text-cyan-200">Necesitamos estos datos para las inscripciones y torneos</p>
+            <p className="text-xs text-slate-500">Necesitamos estos datos para las inscripciones y torneos</p>
           </div>
 
           {mensajeExito && (
-            <div className="bg-rose-500 text-white p-3 rounded-2xl text-xs font-black text-center shadow-lg">
+            <div className="bg-rose-500 text-slate-900 p-3 rounded-2xl text-xs font-black text-center shadow-lg">
               {mensajeExito}
             </div>
           )}
 
-          <div className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
+          <div className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-6 space-y-4 shadow-xl">
             <form onSubmit={handleGuardarPerfilSetup} className="space-y-4">
               <div>
-                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Nombre y Apellido</label>
+                <label className="block text-[11px] text-slate-500 font-bold uppercase mb-1.5">Nombre y Apellido</label>
                 <input
                   type="text"
                   placeholder="Ej: Carlos Gómez"
                   value={miPerfil.nombreCompleto}
                   onChange={(e) => setMiPerfil({...miPerfil, nombreCompleto: e.target.value})}
                   required
-                  className="w-full bg-[#0b1727] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Número de Teléfono</label>
+                <label className="block text-[11px] text-slate-500 font-bold uppercase mb-1.5">Número de Teléfono</label>
                 <input
                   type="tel"
                   placeholder="Ej: 600123456"
                   value={miPerfil.telefono}
                   onChange={(e) => setMiPerfil({...miPerfil, telefono: e.target.value})}
                   required
-                  className="w-full bg-[#0b1727] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Nivel en Playtomic</label>
+                <label className="block text-[11px] text-slate-500 font-bold uppercase mb-1.5">Nivel en Playtomic</label>
                 <input
                   type="number"
                   step="0.1"
@@ -395,13 +403,13 @@ export default function PadelApp() {
                   value={miPerfil.nivelPlaytomic}
                   onChange={(e) => setMiPerfil({...miPerfil, nivelPlaytomic: e.target.value})}
                   required
-                  className="w-full bg-[#0b1727] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-lime-300 hover:bg-lime-200 text-slate-950 font-black py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-3"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-3"
               >
                 Guardar y Entrar a la App
               </button>
@@ -414,71 +422,66 @@ export default function PadelApp() {
 
   // 3. APLICACIÓN PRINCIPAL
   return (
-    <div className="min-h-screen bg-[#07111f] text-slate-100 font-sans pb-32 max-w-7xl mx-auto relative border-x border-white/5 shadow-2xl overflow-hidden">
-      <style>{`body { background: #07111f; } * { scrollbar-width: thin; scrollbar-color: #334155 transparent; }`}</style>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden"><div className="absolute -top-40 -right-32 h-96 w-96 rounded-full bg-lime-300/10 blur-3xl" /><div className="absolute top-72 -left-40 h-96 w-96 rounded-full bg-cyan-400/10 blur-3xl" /></div>
+    <div className="min-h-screen bg-[#f4f7f5] text-slate-900 font-sans pb-32 max-w-md mx-auto relative border-x border-slate-200 shadow-2xl">
       {/* Marcador Superior */}
-      <header className="sticky top-0 z-30 bg-[#07111f]/90 backdrop-blur-xl px-5 md:px-8 py-4 border-b border-white/10 flex justify-between items-center shadow-lg">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md p-4 border-b-2 border-emerald-200 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-2.5">
           <div>
-            <h1 className="text-base font-black tracking-wider text-white uppercase">
+            <h1 className="text-base font-black tracking-wider text-slate-900 uppercase">
               PADEL ARENA
             </h1>
-            <p className="text-[10px] text-cyan-200/80 font-medium">Jugador: <strong className="text-lime-300">{miPerfil.nombreCompleto}</strong></p>
+            <p className="text-[10px] text-slate-500/80 font-medium">Jugador: <strong className="text-emerald-700">{miPerfil.nombreCompleto}</strong></p>
           </div>
         </div>
 
-        <button 
-          onClick={() => setActiveTab('perfil')}
-          className="bg-white/5 border border-white/10 text-white text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1 active:scale-95 transition-all shadow-sm"
-        >
-          <User className="w-3.5 h-3.5 text-lime-300" /> {miPerfil.nombreCompleto.split(' ')[0]}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setActiveTab('admin')} className="h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-600 flex items-center justify-center shadow-sm active:scale-95" title="Organizador">
+            <Shield className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={() => setActiveTab(activeTab === 'admin' ? 'inicio' : 'perfil')}
+            className="bg-slate-100 border border-emerald-200 text-slate-900 text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1 active:scale-95 transition-all shadow-sm"
+          >
+            <User className="w-3.5 h-3.5 text-emerald-700" /> {miPerfil.nombreCompleto.split(' ')[0]}
+          </button>
+        </div>
       </header>
 
-      <main className="relative z-10 p-4 md:p-8 lg:p-10 space-y-7">
+      <main className="p-4 space-y-5">
 
         {mensajeExito && (
-          <div className="bg-lime-300 text-slate-950 p-3 rounded-2xl text-xs font-black animate-bounce shadow-lg text-center">
+          <div className="bg-emerald-500 text-white p-3 rounded-2xl text-xs font-black animate-bounce shadow-lg text-center">
             {mensajeExito}
           </div>
         )}
         
-        {/* INICIO: actividad del jugador, sin duplicar el catálogo de eventos */}
+        {/* INICIO / DASHBOARD */}
         {activeTab === 'inicio' && (
-          <div className="space-y-5">
-            <div className="bg-gradient-to-br from-lime-300/15 via-cyan-400/10 to-transparent border border-lime-300/20 rounded-3xl p-5">
-              <p className="text-[10px] text-lime-300 font-black uppercase tracking-widest">Mi actividad</p>
-              <h2 className="text-2xl md:text-4xl font-black text-white mt-1 tracking-tight">Hola, {miPerfil.nombreCompleto || 'jugador'} 👋</h2>
-              <p className="text-xs text-cyan-100 mt-1">Aquí verás lo que tienes pendiente. Para consultar todos los eventos, entra en Eventos.</p>
-            </div>
-
-            {eventoSeleccionado ? (
-              <div className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-4 shadow-xl">
-                <div className="flex justify-between items-start gap-3">
-                  <div>
-                    <span className="text-[10px] text-lime-300 font-black uppercase tracking-wider">Próximo evento seleccionado</span>
-                    <h3 className="text-base font-black text-white mt-1">{eventoSeleccionado.titulo}</h3>
-                    <p className="text-xs text-cyan-200 mt-1">📍 {eventoSeleccionado.club} · {eventoSeleccionado.fecha}</p>
-                  </div>
-                  <span className="bg-lime-300 text-slate-950 text-[10px] font-black px-2 py-1 rounded-lg">{eventoSeleccionado.tipo}</span>
-                </div>
-                <button onClick={() => setActiveTab('pistas')} className="mt-4 w-full bg-lime-300 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase">Ver mis partidos</button>
+          <div className="space-y-5 animate-in fade-in duration-300">
+            <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-400 p-5 text-white shadow-xl">
+              <div className="relative z-10 max-w-[75%]">
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Padel Arena</div>
+                <h2 className="mt-1 text-3xl font-black leading-none">Juega. Compite. Repite. 🎾</h2>
+                <p className="mt-2 text-xs font-semibold text-white/85">Tus eventos, tus partidos, tu ranking y tu Fantasy en un solo sitio.</p>
+                <button onClick={() => setActiveTab('eventos')} className="mt-4 rounded-xl bg-white px-4 py-2.5 text-xs font-black text-emerald-700 shadow-lg active:scale-95">Ver próximos eventos →</button>
               </div>
-            ) : (
-              <div className="bg-white/[0.045] border border-white/10 rounded-3xl p-5 text-center">
-                <Calendar className="w-9 h-9 text-lime-300 mx-auto mb-2" />
-                <h3 className="text-sm font-black text-white">Todavía no tienes un evento seleccionado</h3>
-                <p className="text-xs text-cyan-200 mt-1">Explora el catálogo y apúntate al evento que quieras jugar.</p>
-                <button onClick={() => setActiveTab('eventos')} className="mt-3 bg-lime-300 text-slate-950 font-black px-4 py-2 rounded-xl text-xs uppercase">Ver eventos</button>
-              </div>
-            )}
+              <div className="absolute -right-10 -bottom-10 h-44 w-44 rounded-full bg-white/15" />
+              <div className="absolute right-5 top-5 text-6xl rotate-12">🎾</div>
+            </section>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white/[0.045] rounded-2xl p-3 border border-cyan-900"><span className="text-[9px] text-lime-300 uppercase font-bold">Puntos</span><strong className="block text-lg text-white mt-1">{(ranking.find(j => j.nombre === miPerfil.nombreCompleto)?.puntosPozos || 0) + (ranking.find(j => j.nombre === miPerfil.nombreCompleto)?.puntosTorneos || 0)}</strong></div>
-              <div className="bg-white/[0.045] rounded-2xl p-3 border border-cyan-900"><span className="text-[9px] text-lime-300 uppercase font-bold">Pozos</span><strong className="block text-lg text-white mt-1">{ranking.find(j => j.nombre === miPerfil.nombreCompleto)?.pozos || 0}</strong></div>
-              <div className="bg-white/[0.045] rounded-2xl p-3 border border-cyan-900"><span className="text-[9px] text-lime-300 uppercase font-bold">Torneos</span><strong className="block text-lg text-white mt-1">{ranking.find(j => j.nombre === miPerfil.nombreCompleto)?.torneosJugados || 0}</strong></div>
-            </div>
+            <section className="grid grid-cols-2 gap-3">
+              <button onClick={() => setActiveTab('pistas')} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:-translate-y-0.5 transition">
+                <div className="text-2xl">🏟️</div><div className="mt-2 text-sm font-black">Partidos</div><div className="text-[10px] text-slate-500">Entra en la pista</div>
+              </button>
+              <button onClick={() => setActiveTab('fantasy')} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:-translate-y-0.5 transition">
+                <div className="text-2xl">🧠</div><div className="mt-2 text-sm font-black">Fantasy</div><div className="text-[10px] text-slate-500">Crea tu equipo</div>
+              </button>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between"><div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Tu actividad</span><h3 className="text-lg font-black">Esta semana 🔥</h3></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">{fantasyPts} Fantasy pts</span></div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="rounded-2xl bg-slate-50 p-3"><b className="block text-xl">2</b><span className="text-[9px] font-bold text-slate-500 uppercase">Partidos</span></div><div className="rounded-2xl bg-slate-50 p-3"><b className="block text-xl">+45</b><span className="text-[9px] font-bold text-slate-500 uppercase">Ranking</span></div><div className="rounded-2xl bg-slate-50 p-3"><b className="block text-xl">#18</b><span className="text-[9px] font-bold text-slate-500 uppercase">Fantasy</span></div></div>
+            </section>
           </div>
         )}
 
@@ -486,8 +489,8 @@ export default function PadelApp() {
         {activeTab === 'eventos' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-xs font-black tracking-widest text-cyan-200 uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-lime-300" /> DESCUBRE LOS PRÓXIMOS EVENTOS
+              <h2 className="text-xs font-black tracking-widest text-slate-500 uppercase flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-600" /> Próximos Partidos & Torneos
               </h2>
             </div>
 
@@ -500,32 +503,32 @@ export default function PadelApp() {
                 const estaRegistrando = eventoRegistrandoId === evento.id;
 
                 return (
-                  <div key={evento.id} className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-4.5 space-y-3.5 relative overflow-hidden shadow-xl">
+                  <div key={evento.id} className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4.5 space-y-3.5 relative overflow-hidden shadow-xl">
                     <div className="flex justify-between items-start">
                       <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
                         isPozo 
-                          ? 'bg-lime-300 text-slate-950 border-cyan-300 font-extrabold' 
-                          : 'bg-amber-400 text-slate-950 border-amber-300 font-extrabold'
+                          ? 'bg-emerald-500 text-white border-cyan-300 font-extrabold' 
+                          : 'bg-amber-400 text-white border-amber-300 font-extrabold'
                       }`}>
                         {evento.tipo}
                       </span>
 
-                      <button onClick={() => compartirEvento(evento)} className="text-cyan-200 hover:text-white bg-[#0b1727] p-2 rounded-full border border-cyan-500/40">
+                      <button onClick={() => compartirEvento(evento)} className="text-slate-500 hover:text-slate-900 bg-[#f4f7f5] p-2 rounded-full border border-cyan-500/40">
                         <Share2 className="w-4 h-4" />
                       </button>
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-black text-white leading-tight">{evento.titulo}</h3>
+                      <h3 className="text-lg font-black text-slate-900 leading-tight">{evento.titulo}</h3>
                       
                       {/* DIRECCIÓN CON ENLACE A GOOGLE MAPS */}
                       <p className="text-xs text-cyan-100 mt-1.5 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-lime-300 shrink-0" /> 
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> 
                         <a 
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evento.club)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline hover:text-lime-300 transition-colors font-medium"
+                          className="underline hover:text-emerald-700 transition-colors font-medium"
                         >
                           {evento.club} 📍
                         </a>
@@ -537,25 +540,25 @@ export default function PadelApp() {
                     </div>
 
                     {/* Medidor Ocupación */}
-                    <div className="bg-[#0b1727] p-3 rounded-2xl border border-cyan-900 space-y-1.5">
+                    <div className="bg-[#f4f7f5] p-3 rounded-2xl border border-slate-200 space-y-1.5">
                       <div className="flex justify-between text-xs font-bold">
-                        <span className="text-cyan-200">Parejas Confirmadas</span>
-                        <span className="text-white font-mono">{evento.plazas_ocupadas} / {evento.plazas_totales}</span>
+                        <span className="text-slate-500">Parejas Confirmadas</span>
+                        <span className="text-slate-900 font-mono">{evento.plazas_ocupadas} / {evento.plazas_totales}</span>
                       </div>
-                      <div className="w-full bg-[#0B1D35] h-2.5 rounded-full overflow-hidden p-0.5 border border-cyan-950">
+                      <div className="w-full bg-white h-2.5 rounded-full overflow-hidden p-0.5 border border-cyan-950">
                         <div 
-                          className={`h-full rounded-full transition-all duration-300 ${isPozo ? 'bg-cyan-400' : 'bg-amber-400'}`} 
+                          className={`h-full rounded-full transition-all duration-300 ${isPozo ? 'bg-emerald-500' : 'bg-amber-400'}`} 
                           style={{ width: `${pct}%` }} 
                         />
                       </div>
                     </div>
 
-                    <div className="bg-[#0b1727] px-3 py-2.5 rounded-xl border border-cyan-900 flex justify-between items-center">
+                    <div className="bg-[#f4f7f5] px-3 py-2.5 rounded-xl border border-slate-200 flex justify-between items-center">
                       <div>
-                        <span className="text-[10px] text-lime-300 font-bold uppercase block">Precio por Pareja</span>
-                        <span className="text-xs text-white">({evento.precioUnitario}€ x jugador)</span>
+                        <span className="text-[10px] text-emerald-700 font-bold uppercase block">Precio por Pareja</span>
+                        <span className="text-xs text-slate-900">({evento.precioUnitario}€ x jugador)</span>
                       </div>
-                      <span className="text-base font-black text-lime-300">{evento.precioUnitario * 2}€</span>
+                      <span className="text-base font-black text-emerald-600">{evento.precioUnitario * 2}€</span>
                     </div>
 
                     {!isInscrito && !estaRegistrando && (
@@ -564,17 +567,17 @@ export default function PadelApp() {
                           setEventoRegistrandoId(evento.id);
                           setNombreParejaInput('');
                         }}
-                        className="w-full bg-lime-300 hover:bg-lime-200 text-slate-950 py-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
                       >
                         Inscribir Pareja
                       </button>
                     )}
 
                     {estaRegistrando && (
-                      <div className="bg-[#0b1727] p-3.5 rounded-2xl border border-cyan-500/50 space-y-3 animate-in fade-in duration-200">
+                      <div className="bg-[#f4f7f5] p-3.5 rounded-2xl border border-cyan-500/50 space-y-3 animate-in fade-in duration-200">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-black text-lime-300 uppercase">Indica tu Pareja</span>
-                          <button onClick={() => setEventoRegistrandoId(null)} className="text-lime-300 hover:text-white">
+                          <span className="text-xs font-black text-emerald-700 uppercase">Indica tu Pareja</span>
+                          <button onClick={() => setEventoRegistrandoId(null)} className="text-emerald-600 hover:text-slate-900">
                             <X className="w-4 h-4" />
                           </button>
                         </div>
@@ -583,12 +586,12 @@ export default function PadelApp() {
                           placeholder="Nombre y Apellido de tu pareja"
                           value={nombreParejaInput}
                           onChange={(e) => setNombreParejaInput(e.target.value)}
-                          className="w-full bg-white/[0.045] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                          className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
                         />
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleConfirmarInscripcion(evento.id)}
-                            className="flex-1 bg-lime-300 text-slate-950 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md"
+                            className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md"
                           >
                             Confirmar ({evento.precioUnitario * 2}€)
                           </button>
@@ -604,9 +607,9 @@ export default function PadelApp() {
 
                     {isInscrito && (
                       <div className="space-y-2">
-                        <div className="bg-cyan-950/50 border border-white/10 p-2.5 rounded-xl flex justify-between items-center text-xs">
-                          <span className="text-cyan-200 font-bold flex items-center gap-1.5">
-                            <CheckCircle2 className="w-4 h-4 text-lime-300" /> Pareja: {miPerfil.nombreCompleto} & {parejaInscrita}
+                        <div className="bg-cyan-950/50 border border-emerald-200 p-2.5 rounded-xl flex justify-between items-center text-xs">
+                          <span className="text-slate-500 font-bold flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Pareja: {miPerfil.nombreCompleto} & {parejaInscrita}
                           </span>
                           <button 
                             onClick={() => handleCancelarInscripcion(evento.id)}
@@ -621,9 +624,9 @@ export default function PadelApp() {
                             setEventoActivoId(evento.id);
                             setActiveTab('pistas');
                           }}
-                          className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                          className="w-full bg-amber-400 hover:bg-amber-300 text-white py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
                         >
-                          <Eye className="w-4 h-4" /> Ver partidos
+                          <Eye className="w-4 h-4" /> Entrar al Torneo / Ver Pistas
                         </button>
                       </div>
                     )}
@@ -637,36 +640,49 @@ export default function PadelApp() {
         {/* PESTAÑA PISTAS */}
         {activeTab === 'pistas' && (
           <div className="space-y-4">
+            <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3"><div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Pista interactiva</span><h2 className="text-lg font-black">Pista central 🎾</h2></div><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700">TOCA UN JUGADOR</span></div>
+              <div className="relative mx-auto aspect-[1.7/1] max-w-[520px] overflow-hidden rounded-[22px] border-[8px] border-white bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-lg ring-1 ring-emerald-200">
+                <div className="absolute inset-[8%] rounded-xl border-2 border-white/90" />
+                <div className="absolute left-1/2 top-[8%] bottom-[8%] border-l-2 border-white/90" />
+                <div className="absolute left-[8%] right-[8%] top-1/2 border-t-2 border-white/90" />
+                <div className="absolute left-[8%] right-[8%] top-[31%] border-t border-white/70" />
+                <div className="absolute left-[8%] right-[8%] bottom-[31%] border-t border-white/70" />
+                {[miPerfil.nombreCompleto || 'Félix', parejaInscritaActual || 'Pareja', 'Ángel Ruiz', 'Rober Sánchez'].map((name,i) => <button key={i} onClick={() => setJugadorSeleccionadoPista(i)} className={`absolute ${['left-[14%] top-[20%]','left-[14%] bottom-[20%]','right-[14%] top-[20%]','right-[14%] bottom-[20%]'][i]} -translate-y-1/2 rounded-full border-2 px-2.5 py-1 text-[9px] font-black shadow-lg transition-all ${jugadorSeleccionadoPista===i ? 'scale-110 border-lime-300 bg-white text-emerald-700' : 'border-white/80 bg-slate-900/75 text-white'}`}>{name}</button>)}
+              </div>
+              <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-center"><span className="text-[9px] font-bold uppercase text-slate-400">Jugador seleccionado</span><b className="mt-0.5 block text-sm">{[miPerfil.nombreCompleto || 'Félix', parejaInscritaActual || 'Pareja', 'Ángel Ruiz', 'Rober Sánchez'][jugadorSeleccionadoPista]}</b><p className="text-[10px] text-slate-500">Aquí podremos añadir estadísticas, posición y acciones del partido.</p></div>
+            </section>
+
             {!eventoActivoId || !eventoSeleccionado ? (
-              <div className="bg-white/[0.045] border border-white/10 rounded-3xl p-6 text-center space-y-3 shadow-xl">
-                <Layers className="w-10 h-10 text-lime-300 mx-auto" />
-                <h3 className="text-base font-bold text-white">Ningún evento seleccionado</h3>
-                <p className="text-xs text-cyan-200">Entra a uno de tus eventos inscritos para ver sus pistas y cruces.</p>
+              <div className="bg-white border border-emerald-200 rounded-3xl p-6 text-center space-y-3 shadow-xl">
+                <Layers className="w-10 h-10 text-emerald-600 mx-auto" />
+                <h3 className="text-base font-bold text-slate-900">Ningún torneo seleccionado</h3>
+                <p className="text-xs text-slate-500">Entra a uno de tus eventos inscritos para ver sus pistas y cruces.</p>
                 <button 
                   onClick={() => setActiveTab('eventos')}
-                  className="bg-lime-300 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider mt-2"
+                  className="bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider mt-2"
                 >
-                  Ir a Eventos
+                  Ir a Mis Eventos
                 </button>
               </div>
             ) : (
               <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="bg-white/[0.045] border border-white/10 p-3 rounded-2xl flex justify-between items-center shadow-md">
+                <div className="bg-white border border-emerald-200 p-3 rounded-2xl flex justify-between items-center shadow-md">
                   <div>
-                    <span className="text-[10px] text-lime-300 font-bold uppercase tracking-wider block">Estás consultando:</span>
-                    <h3 className="text-sm font-black text-white">{eventoSeleccionado.titulo}</h3>
+                    <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider block">Estás consultando:</span>
+                    <h3 className="text-sm font-black text-slate-900">{eventoSeleccionado.titulo}</h3>
                     <a 
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(eventoSeleccionado.club)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[11px] text-lime-300 underline block mt-0.5"
+                      className="text-[11px] text-emerald-700 underline block mt-0.5"
                     >
                       📍 {eventoSeleccionado.club} (Ver en Maps)
                     </a>
                   </div>
                   <button
                     onClick={() => setEventoActivoId(null)}
-                    className="bg-[#0b1727] hover:bg-[#0B1D35] text-lime-300 text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 border border-cyan-900"
+                    className="bg-[#f4f7f5] hover:bg-white text-emerald-700 text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 border border-slate-200"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" /> Cambiar
                   </button>
@@ -675,10 +691,10 @@ export default function PadelApp() {
                 {eventoSeleccionado.tipo === 'Pozo' && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-black tracking-widest text-cyan-200 uppercase">Sorteo inicial • Pozo</h3>
+                      <h3 className="text-xs font-black tracking-widest text-slate-500 uppercase">Pistas de Salida • Pozo</h3>
                       <button
                         onClick={handleMezclarPistas}
-                        className="bg-lime-300 hover:bg-lime-200 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-95 transition-all shadow-md"
+                        className="bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-95 transition-all shadow-md"
                       >
                         <Shuffle className="w-3.5 h-3.5" /> Sortear
                       </button>
@@ -688,24 +704,24 @@ export default function PadelApp() {
                       const pareja1Actual = (p.numero === 1) ? [miPerfil.nombreCompleto, parejaInscritaActual] : p.parej1;
 
                       return (
-                        <div key={p.numero} className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
+                        <div key={p.numero} className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4 space-y-3 shadow-xl">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-lime-300" /> {p.nombre}
+                            <span className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> {p.nombre}
                             </span>
                           </div>
 
-                          <div className="relative bg-[#174F8A] border-4 border-white rounded-2xl p-4 overflow-hidden shadow-inner flex items-center justify-between h-36">
+                          <div className="relative bg-emerald-600 border-4 border-white rounded-2xl p-4 overflow-hidden shadow-inner flex items-center justify-between h-36">
                             <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 border-r-2 border-dashed border-white/80 z-10" />
                             <div className="w-1/2 text-center relative z-20 space-y-1 pr-2">
-                              <span className="text-[9px] font-black text-cyan-200 uppercase tracking-widest block">PAREJA A</span>
-                              <p className="text-xs font-black text-white drop-shadow-md truncate">{pareja1Actual[0]}</p>
-                              <p className="text-xs font-black text-white drop-shadow-md truncate">{pareja1Actual[1]}</p>
+                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">PAREJA A</span>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[0]}</p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[1]}</p>
                             </div>
                             <div className="w-1/2 text-center relative z-20 space-y-1 pl-2">
-                              <span className="text-[9px] font-black text-cyan-200 uppercase tracking-widest block">PAREJA B</span>
-                              <p className="text-xs font-black text-white drop-shadow-md truncate">{p.pareja2[0]}</p>
-                              <p className="text-xs font-black text-white drop-shadow-md truncate">{p.pareja2[1]}</p>
+                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">PAREJA B</span>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja2[0]}</p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja2[1]}</p>
                             </div>
                           </div>
                         </div>
@@ -716,11 +732,11 @@ export default function PadelApp() {
 
                 {eventoSeleccionado.tipo === 'Torneo' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-1 bg-[#0b1727] p-1 rounded-xl border border-cyan-900">
+                    <div className="grid grid-cols-3 gap-1 bg-[#f4f7f5] p-1 rounded-xl border border-slate-200">
                       <button
                         onClick={() => setFaseTorneo('grupos')}
                         className={`py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${
-                          faseTorneo === 'grupos' ? 'bg-cyan-500 text-slate-950' : 'text-cyan-200'
+                          faseTorneo === 'grupos' ? 'bg-emerald-500 text-white' : 'text-slate-500'
                         }`}
                       >
                         📊 Grupos
@@ -728,7 +744,7 @@ export default function PadelApp() {
                       <button
                         onClick={() => setFaseTorneo('principal')}
                         className={`py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${
-                          faseTorneo === 'principal' ? 'bg-amber-400 text-slate-950' : 'text-cyan-200'
+                          faseTorneo === 'principal' ? 'bg-amber-400 text-white' : 'text-slate-500'
                         }`}
                       >
                         🏆 Principal
@@ -736,7 +752,7 @@ export default function PadelApp() {
                       <button
                         onClick={() => setFaseTorneo('consolacion')}
                         className={`py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${
-                          faseTorneo === 'consolacion' ? 'bg-emerald-400 text-slate-950' : 'text-cyan-200'
+                          faseTorneo === 'consolacion' ? 'bg-emerald-400 text-white' : 'text-slate-500'
                         }`}
                       >
                         🛡️ Consolación
@@ -745,19 +761,19 @@ export default function PadelApp() {
 
                     {faseTorneo === 'grupos' && (
                       <div className="space-y-3">
-                        <div className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
-                          <div className="flex justify-between items-center border-b border-cyan-900 pb-2">
-                            <span className="text-xs font-black text-lime-300 uppercase">Grupo A (Liguilla)</span>
-                            <span className="text-[10px] bg-lime-300 text-slate-950 font-bold px-2 py-0.5 rounded">Mín. 3 partidos</span>
+                        <div className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4 space-y-3 shadow-xl">
+                          <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                            <span className="text-xs font-black text-emerald-700 uppercase">Grupo A (Liguilla)</span>
+                            <span className="text-[10px] bg-emerald-500 text-white font-bold px-2 py-0.5 rounded">Mín. 3 partidos</span>
                           </div>
                           <div className="space-y-2 text-xs">
-                            <div className="flex justify-between items-center bg-[#0b1727] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">1. {miPerfil.nombreCompleto} & {parejaInscritaActual}</span>
-                              <span className="text-lime-300 font-mono font-bold">2 PJ • 6 pts</span>
+                            <div className="flex justify-between items-center bg-[#f4f7f5] p-2.5 rounded-xl">
+                              <span className="font-bold text-slate-900">1. {miPerfil.nombreCompleto} & {parejaInscritaActual}</span>
+                              <span className="text-emerald-700 font-mono font-bold">2 PJ • 6 pts</span>
                             </div>
-                            <div className="flex justify-between items-center bg-[#0b1727] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">2. Angel Ruiz & Rober Sanchez</span>
-                              <span className="text-lime-300 font-mono font-bold">2 PJ • 4 pts</span>
+                            <div className="flex justify-between items-center bg-[#f4f7f5] p-2.5 rounded-xl">
+                              <span className="font-bold text-slate-900">2. Angel Ruiz & Rober Sanchez</span>
+                              <span className="text-emerald-700 font-mono font-bold">2 PJ • 4 pts</span>
                             </div>
                           </div>
                         </div>
@@ -765,40 +781,40 @@ export default function PadelApp() {
                     )}
 
                     {faseTorneo === 'principal' && (
-                      <div className="bg-white/[0.045] border-2 border-amber-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
-                        <div className="flex justify-between items-center border-b border-cyan-900 pb-2">
+                      <div className="bg-white/90 border-2 border-amber-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                           <span className="text-xs font-black text-amber-300 uppercase flex items-center gap-1">
                             <Trophy className="w-3.5 h-3.5" /> Cuadro Principal
                           </span>
                         </div>
                         <div className="space-y-3 text-xs">
-                          <div className="bg-[#0b1727] p-3 rounded-xl border border-cyan-900 space-y-1">
+                          <div className="bg-[#f4f7f5] p-3 rounded-xl border border-slate-200 space-y-1">
                             <span className="text-[9px] text-amber-300 font-bold uppercase block">Semifinal 1</span>
-                            <div className="flex justify-between font-bold text-white">
+                            <div className="flex justify-between font-bold text-slate-900">
                               <span>{miPerfil.nombreCompleto} & {parejaInscritaActual} vs Pareja C</span>
-                              <span className="text-lime-300 font-mono">Sáb 12:00</span>
+                              <span className="text-emerald-600 font-mono">Sáb 12:00</span>
                             </div>
                           </div>
                           <div className="bg-gradient-to-r from-amber-500/20 to-blue-500/20 p-3 rounded-xl border border-amber-400/40 space-y-1 text-center">
                             <span className="text-[10px] text-amber-300 font-black uppercase block">🏆 GRAN FINAL PRINCIPAL</span>
-                            <p className="font-bold text-white">Lucha por el título de Campeones</p>
+                            <p className="font-bold text-slate-900">Lucha por el título de Campeones</p>
                           </div>
                         </div>
                       </div>
                     )}
 
                     {faseTorneo === 'consolacion' && (
-                      <div className="bg-white/[0.045] border-2 border-emerald-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
-                        <div className="flex justify-between items-center border-b border-cyan-900 pb-2">
+                      <div className="bg-white/90 border-2 border-emerald-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                           <span className="text-xs font-black text-emerald-300 uppercase flex items-center gap-1">
                             <GitBranch className="w-3.5 h-3.5" /> Cuadro de Consolación
                           </span>
                         </div>
                         <div className="space-y-3 text-xs">
-                          <p className="text-[11px] text-emerald-200">Garantiza el mínimo de 4 partidos disputados por pareja.</p>
-                          <div className="bg-emerald-950/60 p-3 rounded-xl border border-emerald-500/30 space-y-1 text-center">
+                          <p className="text-[11px] text-emerald-700">Garantiza el mínimo de 4 partidos disputados por pareja.</p>
+                          <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-500/30 space-y-1 text-center">
                             <span className="text-[10px] text-emerald-300 font-black uppercase block">🛡️ FINAL DE CONSOLACIÓN</span>
-                            <p className="font-bold text-white">Lucha por el título secundario</p>
+                            <p className="font-bold text-slate-900">Lucha por el título secundario</p>
                           </div>
                         </div>
                       </div>
@@ -813,18 +829,95 @@ export default function PadelApp() {
         {/* PESTAÑA RANKINGS */}
         {activeTab === 'rankings' && (
           <div className="space-y-4">
-            <div>
-              <h2 className="text-xs font-black tracking-widest text-cyan-200 uppercase flex items-center gap-2"><Trophy className="w-4 h-4 text-lime-300" /> Ranking global de jugadores</h2>
-              <p className="text-xs text-cyan-200 mt-1">Los resultados de los eventos suman aquí, independientemente del club donde se jueguen.</p>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xs font-black tracking-widest text-slate-500 uppercase flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-emerald-600" /> Rankings independientes
+              </h2>
             </div>
-            <div className="bg-white/[0.045] border-2 border-white/10 rounded-3xl overflow-hidden shadow-xl">
-              {rankingOrdenado.map((jugador, index) => {
-                const puntos = jugador.puntosPozos + jugador.puntosTorneos;
-                return <div key={jugador.id} className="flex items-center justify-between p-3.5 border-b border-cyan-900/60">
-                  <div className="flex items-center gap-3"><span className="w-7 text-center font-black text-lime-300">{index + 1}º</span><div><h4 className="font-extrabold text-white text-xs">{jugador.nombre}</h4><p className="text-[10px] text-cyan-200">Nivel {jugador.nivel.toFixed(1)} · {jugador.pozos + jugador.torneosJugados} eventos</p></div></div>
-                  <span className="font-black text-xs text-lime-300">{puntos} pts</span>
-                </div>;
-              })}
+
+            <div className="grid grid-cols-2 gap-2 bg-white p-1.5 rounded-2xl border border-slate-200">
+              <button
+                onClick={() => setTipoRanking('pozos')}
+                className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  tipoRanking === 'pozos' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                ⚡ Ranking Pozos
+              </button>
+              <button
+                onClick={() => setTipoRanking('torneos')}
+                className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  tipoRanking === 'torneos' ? 'bg-amber-400 text-white shadow-md' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                🏆 Ranking Torneos
+              </button>
+            </div>
+
+            <div className="bg-white/90 border-2 border-emerald-200 rounded-3xl overflow-hidden shadow-xl">
+              {rankingOrdenado.length > 0 && (
+                <div className={`p-4 text-white flex items-center justify-between ${tipoRanking === 'pozos' ? 'bg-gradient-to-r from-cyan-400 to-blue-500' : 'bg-gradient-to-r from-amber-400 to-amber-300'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-950 text-slate-900 font-black text-lg flex items-center justify-center">
+                      🥇
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black">{rankingOrdenado[0].nombre}</h3>
+                      <p className="text-[10px] font-extrabold text-slate-900 uppercase">
+                        {tipoRanking === 'pozos' ? 'Líder de Pozos' : 'Campeón de Torneos'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xl font-black block">
+                      {tipoRanking === 'pozos' ? rankingOrdenado[0].puntosPozos : rankingOrdenado[0].puntosTorneos}
+                    </span>
+                    <span className="text-[9px] font-black uppercase">PUNTOS</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="divide-y divide-cyan-900/60 p-1">
+                {rankingOrdenado.slice(1).map((jugador, index) => (
+                  <div key={jugador.id} className="flex items-center justify-between p-3.5 hover:bg-[#f4f7f5]/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 text-center text-xs font-black text-emerald-700">
+                        {index === 0 ? '🥈' : index === 1 ? '🥉' : `${index + 3}º`}
+                      </span>
+                      <div>
+                        <h4 className="font-extrabold text-slate-900 text-xs">{jugador.nombre}</h4>
+                        <p className="text-[10px] text-slate-500">
+                          Nivel {jugador.nivel.toFixed(1)} • {tipoRanking === 'pozos' ? `${jugador.pozos} pozos` : `${jugador.torneosJugados} torneos`}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-black text-xs text-emerald-700">
+                      {tipoRanking === 'pozos' ? `${jugador.puntosPozos} pts` : `${jugador.puntosTorneos} pts`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑA FANTASY */}
+        {activeTab === 'fantasy' && (
+          <div className="space-y-5 animate-in fade-in duration-300">
+            <div className="rounded-3xl bg-gradient-to-r from-slate-900 to-emerald-900 p-5 text-white shadow-xl">
+              <div className="flex items-center justify-between"><div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-300">Fantasy 🎾</span><h2 className="mt-1 text-2xl font-black">Tu equipo de ensueño</h2></div><div className="text-right"><span className="block text-2xl font-black">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-white/60">puntos</span></div></div>
+              <div className="mt-4 flex justify-between text-xs font-bold"><span>Presupuesto</span><span>{fantasyGastado.toFixed(1)} / {fantasyPresupuesto}M</span></div>
+              <div className="mt-2 h-2 rounded-full bg-white/15 overflow-hidden"><div className="h-full rounded-full bg-lime-300" style={{width: `${Math.min(100, fantasyGastado / fantasyPresupuesto * 100)}%`}} /></div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3"><h3 className="font-black">Mi equipo</h3><span className="text-[10px] font-bold text-slate-500">4 jugadores</span></div>
+              <div className="space-y-2">{fantasySeleccionados.map(j => <div key={j.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"><div><b className="text-xs">{j.nombre}</b><span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">Nivel {j.nivel.toFixed(1)}</span></div><div className="text-right"><b className="block text-xs">{j.fantasyPts} pts</b><span className="text-[9px] text-slate-400">{j.valor}M</span></div></div>)}</div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="font-black">Mercado de jugadores</h3><p className="mt-1 text-[10px] text-slate-500">Pulsa un jugador para ficharlo o quitarlo.</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">{fantasyJugadores.map(j => { const elegido=fantasyEquipo.includes(j.id); const puede=fantasyGastado-j.valor < fantasyPresupuesto; return <button key={j.id} onClick={() => setFantasyEquipo(prev => elegido ? prev.filter(id => id!==j.id) : (prev.length<4 && puede ? [...prev,j.id] : prev))} className={`rounded-2xl border p-3 text-left transition ${elegido ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:bg-white'}`}><div className="flex justify-between gap-2"><b className="text-xs truncate">{j.nombre}</b><span>{elegido ? '✓' : '+'}</span></div><div className="mt-2 flex justify-between text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span className="font-black">{j.valor}M</span></div></button>})}</div>
             </div>
           </div>
         )}
@@ -833,13 +926,13 @@ export default function PadelApp() {
         {activeTab === 'admin' && (
           <div className="space-y-5">
             {!esOrganizador ? (
-              <div className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-6 text-center space-y-4 shadow-xl">
-                <div className="w-14 h-14 bg-lime-300 text-slate-950 rounded-2xl mx-auto flex items-center justify-center shadow-lg">
+              <div className="bg-white border-2 border-emerald-200 rounded-3xl p-6 text-center space-y-4 shadow-xl">
+                <div className="w-14 h-14 bg-emerald-500 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg">
                   <Lock className="w-7 h-7" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-white">Acceso Restringido</h3>
-                  <p className="text-xs text-cyan-200 mt-1">Introduce el PIN de organizador (1234).</p>
+                  <h3 className="text-lg font-black text-slate-900">Acceso Restringido</h3>
+                  <p className="text-xs text-slate-500 mt-1">Introduce el PIN de organizador (1234).</p>
                 </div>
 
                 <form onSubmit={handleLoginOrganizador} className="space-y-3 pt-2">
@@ -848,14 +941,14 @@ export default function PadelApp() {
                     placeholder="PIN (1234)"
                     value={pinAdmin}
                     onChange={(e) => setPinAdmin(e.target.value)}
-                    className="w-full bg-[#0b1727] border border-cyan-900 rounded-2xl p-3 text-center text-lg font-black text-white tracking-widest focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3 text-center text-lg font-black text-slate-900 tracking-widest focus:outline-none focus:border-cyan-400"
                   />
                   {errorPin && (
                     <p className="text-xs font-bold text-rose-400">PIN incorrecto (prueba con 1234)</p>
                   )}
                   <button
                     type="submit"
-                    className="w-full bg-lime-300 hover:bg-lime-200 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
                   >
                     Desbloquear Panel
                   </button>
@@ -863,9 +956,9 @@ export default function PadelApp() {
               </div>
             ) : (
               <div className="space-y-5 animate-in fade-in duration-300">
-                <div className="flex justify-between items-center bg-white/[0.045] p-3 rounded-2xl border border-white/10">
-                  <span className="text-xs font-bold text-lime-300 flex items-center gap-1.5">
-                    <Unlock className="w-4 h-4 text-lime-300" /> Modo Organizador Activo
+                <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-emerald-200">
+                  <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                    <Unlock className="w-4 h-4 text-emerald-600" /> Modo Organizador Activo
                   </span>
                   <button 
                     onClick={() => setEsOrganizador(false)}
@@ -875,9 +968,9 @@ export default function PadelApp() {
                   </button>
                 </div>
 
-                <div className="bg-white/[0.045] border-2 border-white/10 p-4 rounded-3xl space-y-4 shadow-xl">
-                  <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-lime-300" /> Crear Nuevo Evento
+                <div className="bg-white/90 border-2 border-emerald-200 p-4 rounded-3xl space-y-4 shadow-xl">
+                  <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-emerald-600" /> Crear Nuevo Evento
                   </h3>
 
                   <form onSubmit={handleCrearEvento} className="space-y-3">
@@ -886,22 +979,17 @@ export default function PadelApp() {
                       placeholder="Título del evento"
                       value={nuevoTituloEvento}
                       onChange={(e) => setNuevoTituloEvento(e.target.value)}
-                      className="w-full bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-bold"
+                      className="w-full bg-[#f4f7f5] border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-cyan-400 font-bold"
                     />
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" placeholder="Fecha y hora" value={nuevoFechaEvento} onChange={(e) => setNuevoFechaEvento(e.target.value)} className="bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold" />
-                      <input type="number" min="4" placeholder="Nº jugadores" value={nuevoPlazasEvento} onChange={(e) => setNuevoPlazasEvento(e.target.value)} className="bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold" />
-                    </div>
 
                     <div className="grid grid-cols-2 gap-2">
                       <select
                         value={nuevoTipoEvento}
                         onChange={(e) => setNuevoTipoEvento(e.target.value)}
-                        className="bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold"
+                        className="bg-[#f4f7f5] border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold"
                       >
-                        <option value="Pozo">Pozo Sube-Baja</option>
-                        <option value="Torneo">Torneo (Grupos + Cuadro)</option>
+                        <option value="Pozo">Pozo</option>
+                        <option value="Torneo">Torneo</option>
                       </select>
 
                       <input
@@ -909,23 +997,23 @@ export default function PadelApp() {
                         placeholder="Precio x Jugador (€)"
                         value={nuevoPrecioEvento}
                         onChange={(e) => setNuevoPrecioEvento(e.target.value)}
-                        className="bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold"
+                        className="bg-[#f4f7f5] border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold"
                       />
                     </div>
 
                     <button
                       type="submit"
-                      className="w-full bg-lime-300 hover:bg-lime-200 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all active:scale-95"
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all active:scale-95"
                     >
                       Publicar Evento
                     </button>
                   </form>
 
-                  <div className="pt-3 border-t border-cyan-900 space-y-2">
-                    <span className="text-[10px] uppercase font-extrabold text-lime-300 block">Eventos Activos (Borrar)</span>
+                  <div className="pt-3 border-t border-slate-200 space-y-2">
+                    <span className="text-[10px] uppercase font-extrabold text-emerald-700 block">Eventos Activos (Borrar)</span>
                     {eventos.map((ev) => (
-                      <div key={ev.id} className="flex justify-between items-center bg-[#0b1727] p-2.5 rounded-xl border border-cyan-900/60">
-                        <span className="text-xs font-bold text-white truncate max-w-[200px]">{ev.titulo}</span>
+                      <div key={ev.id} className="flex justify-between items-center bg-[#f4f7f5] p-2.5 rounded-xl border border-slate-200/60">
+                        <span className="text-xs font-bold text-slate-900 truncate max-w-[200px]">{ev.titulo}</span>
                         <button 
                           onClick={() => handleEliminarEvento(ev.id)}
                           className="text-rose-400 hover:text-rose-300 p-1 bg-rose-500/10 rounded-lg border border-rose-500/20"
@@ -937,37 +1025,19 @@ export default function PadelApp() {
                   </div>
                 </div>
 
-                <div className="bg-white/[0.045] border-2 border-white/10 p-4 rounded-3xl space-y-4 shadow-xl">
-                  <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                    <Users className="w-4 h-4 text-lime-300" /> Participantes y sorteo inicial
-                  </h3>
-                  <select value={eventoOrganizadorId} onChange={(e) => setEventoOrganizadorId(Number(e.target.value))} className="w-full bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold">
-                    {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.titulo} · {ev.club}</option>)}
-                  </select>
-                  <div className="flex gap-2">
-                    <input value={nuevoJugadorEvento} onChange={(e) => setNuevoJugadorEvento(e.target.value)} placeholder="Añadir jugador" className="flex-1 bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold" />
-                    <button type="button" onClick={() => { const n=nuevoJugadorEvento.trim(); if(!n) return; setParticipantesPorEvento(prev => ({...prev, [eventoOrganizadorId]: Array.from(new Set([...(prev[eventoOrganizadorId]||[]), n]))})); setNuevoJugadorEvento(''); }} className="bg-lime-300 text-slate-950 px-3 rounded-xl font-black"><Plus className="w-4 h-4" /></button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(participantesPorEvento[eventoOrganizadorId] || []).map((n,i) => <span key={`${n}-${i}`} className="bg-[#0b1727] border border-cyan-900 text-cyan-100 text-[10px] px-2 py-1 rounded-lg">{n}</span>)}
-                  </div>
-                  <button type="button" onClick={() => { const registrados=participantesPorEvento[eventoOrganizadorId] || []; const pool=registrados.length ? registrados : ranking.map(j=>j.nombre); const shuffled=[...pool].sort(()=>Math.random()-0.5); const nuevas:any[]=[]; for(let i=0;i<shuffled.length;i+=4){ if(shuffled[i+1] && shuffled[i+2] && shuffled[i+3]) nuevas.push({numero:nuevas.length+1,nombre:`Pista ${nuevas.length+1}`,parej1:[shuffled[i],shuffled[i+1]],pareja2:[shuffled[i+2],shuffled[i+3]]}); } setPistas(nuevas); setEventoActivoId(eventoOrganizadorId); setMensajeExito(`Sorteo generado: ${nuevas.length} pistas`); setTimeout(()=>setMensajeExito(''),3000); }} className="w-full bg-amber-400 text-slate-950 font-black py-3 rounded-xl text-xs uppercase flex items-center justify-center gap-2"><Shuffle className="w-4 h-4" /> Sortear pistas</button>
-                  <p className="text-[10px] text-cyan-200">Si no añades jugadores manualmente, el prototipo utiliza los jugadores del ranking como base para el sorteo.</p>
-                </div>
-
-                <div className="bg-white/[0.045] border-2 border-white/10 p-4 rounded-3xl space-y-3.5 shadow-xl">
-                  <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                    <Award className="w-4 h-4 text-lime-300" /> Cierre de resultados y puntos
+                <div className="bg-white/90 border-2 border-emerald-200 p-4 rounded-3xl space-y-3.5 shadow-xl">
+                  <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <Award className="w-4 h-4 text-emerald-600" /> Cierre de Puntos & Clasificación
                   </h3>
 
                   <form onSubmit={handleGuardarCierre} className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Modalidad</label>
+                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Modalidad</label>
                         <select
                           value={cierreTipoEvento}
                           onChange={(e) => setCierreTipoEvento(e.target.value as 'Pozo' | 'Torneo')}
-                          className="w-full bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold"
+                          className="w-full bg-[#f4f7f5] border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold"
                         >
                           <option value="Pozo">Pozo</option>
                           <option value="Torneo">Torneo</option>
@@ -975,11 +1045,11 @@ export default function PadelApp() {
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Jugador</label>
+                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Jugador</label>
                         <select
                           value={cierreJugador}
                           onChange={(e) => setCierreJugador(e.target.value)}
-                          className="w-full bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold truncate"
+                          className="w-full bg-[#f4f7f5] border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold truncate"
                         >
                           {ranking.map((j) => (
                             <option key={j.id} value={j.nombre}>{j.nombre}</option>
@@ -990,11 +1060,11 @@ export default function PadelApp() {
 
                     {cierreTipoEvento === 'Pozo' ? (
                       <div>
-                        <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Pista Final en el Pozo</label>
+                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Pista Final en el Pozo</label>
                         <select
                           value={cierrePista}
                           onChange={(e) => setCierrePista(e.target.value)}
-                          className="w-full bg-[#0b1727] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold"
+                          className="w-full bg-[#f4f7f5] border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold"
                         >
                           <option value="1">Pista 1 (Rey) - Base 100 pts</option>
                           <option value="2">Pista 2 - Base 75 pts</option>
@@ -1003,15 +1073,15 @@ export default function PadelApp() {
                         </select>
                       </div>
                     ) : (
-                      <div className="space-y-3 p-3 bg-[#0b1727] rounded-2xl border border-cyan-900">
+                      <div className="space-y-3 p-3 bg-[#f4f7f5] rounded-2xl border border-slate-200">
                         <div>
-                          <label className="block text-[10px] font-extrabold text-lime-300 uppercase mb-1">Cuadro del Torneo</label>
+                          <label className="block text-[10px] font-extrabold text-emerald-700 uppercase mb-1">Cuadro del Torneo</label>
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               type="button"
                               onClick={() => setCierreCuadro('principal')}
                               className={`py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                                cierreCuadro === 'principal' ? 'bg-amber-400 text-slate-950' : 'bg-white/[0.045] text-cyan-200 border border-cyan-800'
+                                cierreCuadro === 'principal' ? 'bg-amber-400 text-white' : 'bg-white text-slate-500 border border-slate-200'
                               }`}
                             >
                               🏆 Principal
@@ -1020,7 +1090,7 @@ export default function PadelApp() {
                               type="button"
                               onClick={() => setCierreCuadro('consolacion')}
                               className={`py-2 rounded-xl text-xs font-black uppercase transition-all ${
-                                cierreCuadro === 'consolacion' ? 'bg-emerald-400 text-slate-950' : 'bg-white/[0.045] text-cyan-200 border border-cyan-800'
+                                cierreCuadro === 'consolacion' ? 'bg-emerald-400 text-white' : 'bg-white text-slate-500 border border-slate-200'
                               }`}
                             >
                               🛡️ Consolación
@@ -1029,11 +1099,11 @@ export default function PadelApp() {
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Fase / Ronda Alcanzada</label>
+                          <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Fase / Ronda Alcanzada</label>
                           <select
                             value={cierreRondaTorneo}
                             onChange={(e) => setCierreRondaTorneo(e.target.value)}
-                            className="w-full bg-white/[0.045] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold"
+                            className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold"
                           >
                             <option value="campeon">{cierreCuadro === 'principal' ? '🥇 Campeón (200 pts)' : '🏆 Campeón Consolación (50 pts)'}</option>
                             <option value="subcampeon">{cierreCuadro === 'principal' ? '🥈 Subcampeón (140 pts)' : '🥈 Subcampeón Consolación (35 pts)'}</option>
@@ -1045,13 +1115,13 @@ export default function PadelApp() {
                     )}
 
                     {cierreTipoEvento === 'Pozo' && (
-                      <div className="flex items-center justify-between p-3 bg-[#0b1727] rounded-xl border border-cyan-900">
-                        <span className="text-xs font-bold text-white">¿Victoria en último partido?</span>
+                      <div className="flex items-center justify-between p-3 bg-[#f4f7f5] rounded-xl border border-slate-200">
+                        <span className="text-xs font-bold text-slate-900">¿Victoria en último partido?</span>
                         <button
                           type="button"
                           onClick={() => setCierreGano(!cierreGano)}
                           className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
-                            cierreGano ? 'bg-lime-300 text-slate-950' : 'bg-[#1A3D6C] text-lime-300'
+                            cierreGano ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-emerald-700'
                           }`}
                         >
                           {cierreGano ? 'SÍ (+Bonus)' : 'NO'}
@@ -1061,7 +1131,7 @@ export default function PadelApp() {
 
                     <button
                       type="submit"
-                      className="w-full bg-lime-300 hover:bg-lime-200 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
                     >
                       Guardar Puntos en el Ranking
                     </button>
@@ -1075,47 +1145,47 @@ export default function PadelApp() {
         {/* PESTAÑA PERFIL */}
         {activeTab === 'perfil' && (
           <div className="space-y-4">
-            <div className="bg-white/[0.045] border-2 border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
+            <div className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-6 space-y-4 shadow-xl">
               <div className="text-center space-y-2">
-                <div className="w-20 h-20 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-3xl mx-auto flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg">
+                <div className="w-20 h-20 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-3xl mx-auto flex items-center justify-center text-white font-black text-2xl shadow-lg">
                   {miPerfil.nombreCompleto ? miPerfil.nombreCompleto.substring(0, 2).toUpperCase() : 'JD'}
                 </div>
-                <h2 className="text-lg font-black text-white">{miPerfil.nombreCompleto}</h2>
-                <p className="text-xs text-cyan-200">Jugador activo</p>
+                <h2 className="text-lg font-black text-slate-900">{miPerfil.nombreCompleto}</h2>
+                <p className="text-xs text-slate-500">Jugador Activo del Club</p>
               </div>
 
-              <div className="bg-[#0b1727] p-4 rounded-2xl border border-cyan-900 space-y-3">
-                <h3 className="text-xs font-black text-lime-300 uppercase tracking-wider">Tus Datos de Perfil</h3>
+              <div className="bg-[#f4f7f5] p-4 rounded-2xl border border-slate-200 space-y-3">
+                <h3 className="text-xs font-black text-emerald-600 uppercase tracking-wider">Tus Datos de Perfil</h3>
                 
                 <div className="space-y-2.5">
                   <div>
-                    <label className="block text-[10px] text-lime-300 font-bold uppercase">Nombre y Apellido</label>
+                    <label className="block text-[10px] text-emerald-700 font-bold uppercase">Nombre y Apellido</label>
                     <input 
                       type="text" 
                       value={miPerfil.nombreCompleto}
                       onChange={(e) => setMiPerfil({...miPerfil, nombreCompleto: e.target.value})}
-                      className="w-full bg-white/[0.045] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold mt-1"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold mt-1"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-lime-300 font-bold uppercase">Teléfono</label>
+                    <label className="block text-[10px] text-emerald-700 font-bold uppercase">Teléfono</label>
                     <input 
                       type="tel" 
                       value={miPerfil.telefono}
                       onChange={(e) => setMiPerfil({...miPerfil, telefono: e.target.value})}
-                      className="w-full bg-white/[0.045] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold mt-1"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold mt-1"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-lime-300 font-bold uppercase">Nivel en Playtomic</label>
+                    <label className="block text-[10px] text-emerald-700 font-bold uppercase">Nivel en Playtomic</label>
                     <input 
                       type="number" 
                       step="0.1"
                       value={miPerfil.nivelPlaytomic}
                       onChange={(e) => setMiPerfil({...miPerfil, nivelPlaytomic: e.target.value})}
-                      className="w-full bg-white/[0.045] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold mt-1"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold mt-1"
                     />
                   </div>
                 </div>
@@ -1127,9 +1197,16 @@ export default function PadelApp() {
                       setTimeout(() => setMensajeExito(''), 3000);
                       setActiveTab('eventos');
                     }}
-                    className="w-full bg-lime-300 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wider"
+                    className="w-full bg-emerald-500 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider"
                   >
                     Guardar Cambios
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className="w-full bg-slate-900 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5"
+                  >
+                    <Shield className="w-3.5 h-3.5" /> Modo Organizador
                   </button>
 
                   <button 
@@ -1149,13 +1226,14 @@ export default function PadelApp() {
       </main>
 
       {/* Navegación Inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#07111f]/95 backdrop-blur-lg border-t-2 border-lime-300/20 p-2 max-w-md mx-auto z-40">
-        <div className="flex justify-around items-center">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t-2 border-emerald-200 p-2 max-w-md mx-auto z-40">
+        <div className="flex justify-around items-center gap-0.5">
           {[
+            { id: 'inicio', icon: Sparkles, label: 'Inicio' },
             { id: 'eventos', icon: Calendar, label: 'Eventos' },
             { id: 'pistas', icon: Users, label: 'Partidos' },
             { id: 'rankings', icon: Trophy, label: 'Ranking' },
-            { id: 'admin', icon: Shield, label: 'Organizador' },
+            { id: 'fantasy', icon: Flame, label: 'Fantasy' },
             { id: 'perfil', icon: Settings, label: 'Perfil' },
           ].map((item) => {
             const Icon = item.icon;
@@ -1165,7 +1243,7 @@ export default function PadelApp() {
                 key={item.id}
                 onClick={() => setActiveTab(item.id as any)}
                 className={`flex flex-col items-center gap-1 p-1.5 text-[10px] font-bold transition-all active:scale-95 ${
-                  isActive ? 'text-lime-300' : 'text-white/45'
+                  isActive ? 'text-emerald-600' : 'text-slate-500/60'
                 }`}
               >
                 <Icon className="w-5 h-5" />
