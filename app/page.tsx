@@ -45,7 +45,7 @@ export default function PadelApp() {
   // Sub-pestana para Ranking (Pozos vs Torneos)
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
 
-  // Selector de formato en la pestaña Pistas/Partidos (Pozo o Torneo)
+  // Selector de formato en la pestaña Pistas/Partidos
   const [modoVisualizacionPistas, setModoVisualizacionPistas] = useState<'pozo' | 'torneo'>('torneo');
   const [faseTorneo, setFaseTorneo] = useState<'grupos' | 'principal' | 'consolacion'>('grupos');
 
@@ -69,9 +69,12 @@ export default function PadelApp() {
     { numero: 2, nombre: 'Pista 2', parej1: ['Jugador 5', 'Jugador 6'], pareja2: ['Jugador 7', 'Jugador 8'] },
   ]);
 
+  // Cierre de puntos admin
   const [cierreJugador, setCierreJugador] = useState('Felix');
   const [cierreTipoEvento, setCierreTipoEvento] = useState<'Pozo' | 'Torneo'>('Pozo');
-  const [cierrePista, setCierrePista] = useState('1');
+  const [cierrePista, setCierrePista] = useState('1'); // Para pozos
+  const [cierreCuadro, setCierreCuadro] = useState<'principal' | 'consolacion'>('principal'); // Para torneos
+  const [cierreRondaTorneo, setCierreRondaTorneo] = useState('campeon'); // Para torneos
   const [cierreGano, setCierreGano] = useState(true);
   const [mensajeExito, setMensajeExito] = useState('');
 
@@ -97,15 +100,41 @@ export default function PadelApp() {
     }
   };
 
-  const calcularPuntos = (pista: number, gano: boolean) => {
+  const calcularPuntosPozo = (pista: number, gano: boolean) => {
     const base = 100 - (pista - 1) * 25;
     const bonus = pista === 1 ? (gano ? 15 : 0) : (gano ? 10 : 0);
     return Math.max(base + bonus, 10);
   };
 
+  const calcularPuntosTorneo = (ronda: string, cuadro: 'principal' | 'consolacion') => {
+    if (cuadro === 'principal') {
+      switch (ronda) {
+        case 'campeon': return 200;
+        case 'subcampeon': return 140;
+        case 'semifinal': return 90;
+        case 'cuartos': return 60;
+        default: return 40;
+      }
+    } else {
+      // Cuadro de Consolación
+      switch (ronda) {
+        case 'campeon': return 50;
+        case 'subcampeon': return 35;
+        case 'semifinal': return 20;
+        default: return 10;
+      }
+    }
+  };
+
   const handleGuardarCierre = (e: React.FormEvent) => {
     e.preventDefault();
-    const pts = calcularPuntos(parseInt(cierrePista), cierreGano);
+    let pts = 0;
+
+    if (cierreTipoEvento === 'Pozo') {
+      pts = calcularPuntosPozo(parseInt(cierrePista), cierreGano);
+    } else {
+      pts = calcularPuntosTorneo(cierreRondaTorneo, cierreCuadro);
+    }
 
     setRanking((prev) =>
       prev.map((j) => {
@@ -120,8 +149,8 @@ export default function PadelApp() {
       })
     );
 
-    setMensajeExito(`¡+${pts} Pts (${cierreTipoEvento}) asignados a ${cierreJugador}!`);
-    setTimeout(() => setMensajeExito(''), 3000);
+    setMensajeExito(`¡+${pts} Pts (${cierreTipoEvento} - ${cierreCuadro}) asignados a ${cierreJugador}!`);
+    setTimeout(() => setMensajeExito(''), 3500);
   };
 
   const handleCrearEvento = (e: React.FormEvent) => {
@@ -313,7 +342,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA PISTAS / PARTIDOS (SOPORTA POZO Y TORNEO CON GRUPOS Y CUADROS) */}
+        {/* PESTAÑA PISTAS / PARTIDOS */}
         {activeTab === 'pistas' && (
           <div className="space-y-4">
             {inscritos.length === 0 ? (
@@ -330,7 +359,6 @@ export default function PadelApp() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Selector de Modalidad de Competición */}
                 <div className="grid grid-cols-2 gap-2 bg-[#0B1D35] p-1.5 rounded-2xl border border-cyan-900">
                   <button
                     onClick={() => setModoVisualizacionPistas('pozo')}
@@ -350,7 +378,6 @@ export default function PadelApp() {
                   </button>
                 </div>
 
-                {/* VISTA POZO (Sube-Baja) */}
                 {modoVisualizacionPistas === 'pozo' && (
                   <div className="space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center">
@@ -389,10 +416,8 @@ export default function PadelApp() {
                   </div>
                 )}
 
-                {/* VISTA TORNEO (GRUPOS + CUADROS PRINCIPAL Y CONSOLACIÓN) */}
                 {modoVisualizacionPistas === 'torneo' && (
                   <div className="space-y-4 animate-in fade-in duration-200">
-                    {/* Selector de Fases de Torneo */}
                     <div className="grid grid-cols-3 gap-1 bg-[#112948] p-1 rounded-xl border border-cyan-900">
                       <button
                         onClick={() => setFaseTorneo('grupos')}
@@ -420,7 +445,6 @@ export default function PadelApp() {
                       </button>
                     </div>
 
-                    {/* FASE DE GRUPOS */}
                     {faseTorneo === 'grupos' && (
                       <div className="space-y-3">
                         <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4 space-y-3 shadow-xl">
@@ -437,42 +461,16 @@ export default function PadelApp() {
                               <span className="font-bold text-white">2. Angel & Rober</span>
                               <span className="text-cyan-300 font-mono font-bold">2 PJ • 4 pts</span>
                             </div>
-                            <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">3. Pareja 3 & 4</span>
-                              <span className="text-cyan-300 font-mono font-bold">2 PJ • 2 pts</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">4. Pareja 5 & 6</span>
-                              <span className="text-cyan-300 font-mono font-bold">2 PJ • 0 pts</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4 space-y-3 shadow-xl">
-                          <div className="flex justify-between items-center border-b border-cyan-900 pb-2">
-                            <span className="text-xs font-black text-cyan-300 uppercase">Grupo B (Liguilla 4 Parejas)</span>
-                            <span className="text-[10px] bg-cyan-400 text-slate-950 font-bold px-2 py-0.5 rounded">Mín. 3 partidos</span>
-                          </div>
-                          <div className="space-y-2 text-xs">
-                            <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">1. Pareja A & B</span>
-                              <span className="text-cyan-300 font-mono font-bold">2 PJ • 6 pts</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">2. Pareja C & D</span>
-                              <span className="text-cyan-300 font-mono font-bold">2 PJ • 4 pts</span>
-                            </div>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* CUADRO PRINCIPAL */}
                     {faseTorneo === 'principal' && (
                       <div className="bg-[#18365C]/90 border-2 border-amber-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
                         <div className="flex justify-between items-center border-b border-cyan-900 pb-2">
                           <span className="text-xs font-black text-amber-300 uppercase flex items-center gap-1">
-                            <Trophy className="w-3.5 h-3.5" /> Cuadro Principal (1as y 2ds de Grupo)
+                            <Trophy className="w-3.5 h-3.5" /> Cuadro Principal
                           </span>
                         </div>
                         <div className="space-y-3 text-xs">
@@ -483,41 +481,26 @@ export default function PadelApp() {
                               <span className="text-cyan-400 font-mono">Sáb 12:00</span>
                             </div>
                           </div>
-                          <div className="bg-[#112948] p-3 rounded-xl border border-cyan-900 space-y-1">
-                            <span className="text-[9px] text-amber-300 font-bold uppercase block">Semifinal 2</span>
-                            <div className="flex justify-between font-bold text-white">
-                              <span>Angel & Rober vs Pareja A & B</span>
-                              <span className="text-cyan-400 font-mono">Sáb 12:00</span>
-                            </div>
-                          </div>
                           <div className="bg-gradient-to-r from-amber-500/20 to-blue-500/20 p-3 rounded-xl border border-amber-400/40 space-y-1 text-center">
-                            <span className="text-[10px] text-amber-300 font-black uppercase block">🏆 GRAN FINAL</span>
-                            <p className="font-bold text-white">Ganador Semifinal 1 vs Ganador Semifinal 2</p>
+                            <span className="text-[10px] text-amber-300 font-black uppercase block">🏆 GRAN FINAL PRINCIPAL</span>
+                            <p className="font-bold text-white">Lucha por el título de Campeones</p>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* CUADRO DE CONSOLACIÓN (Garantiza 4º partido) */}
                     {faseTorneo === 'consolacion' && (
                       <div className="bg-[#18365C]/90 border-2 border-emerald-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
                         <div className="flex justify-between items-center border-b border-cyan-900 pb-2">
                           <span className="text-xs font-black text-emerald-300 uppercase flex items-center gap-1">
-                            <GitBranch className="w-3.5 h-3.5" /> Cuadro de Consolación (3ros y 4tos)
+                            <GitBranch className="w-3.5 h-3.5" /> Cuadro de Consolación
                           </span>
                         </div>
                         <div className="space-y-3 text-xs">
-                          <p className="text-[11px] text-emerald-200">Garantiza el mínimo de 4 partidos disputados por pareja en el torneo.</p>
-                          <div className="bg-[#112948] p-3 rounded-xl border border-cyan-900 space-y-1">
-                            <span className="text-[9px] text-emerald-300 font-bold uppercase block">Semifinal Consolación</span>
-                            <div className="flex justify-between font-bold text-white">
-                              <span>3º Grupo A vs 4º Grupo B</span>
-                              <span className="text-cyan-400 font-mono">Sáb 11:00</span>
-                            </div>
-                          </div>
+                          <p className="text-[11px] text-emerald-200">Garantiza el mínimo de 4 partidos disputados por pareja.</p>
                           <div className="bg-emerald-950/60 p-3 rounded-xl border border-emerald-500/30 space-y-1 text-center">
-                            <span className="text-[10px] text-emerald-300 font-black uppercase block">🛡️ FINAL CONSOLACIÓN</span>
-                            <p className="font-bold text-white">Disputa por el título de consolación</p>
+                            <span className="text-[10px] text-emerald-300 font-black uppercase block">🛡️ FINAL DE CONSOLACIÓN</span>
+                            <p className="font-bold text-white">Lucha por el título secundario</p>
                           </div>
                         </div>
                       </div>
@@ -529,7 +512,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA RANKING (DIVIDIDO EN DOS: POZOS Y TORNEOS) */}
+        {/* PESTAÑA RANKING */}
         {activeTab === 'rankings' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -538,7 +521,6 @@ export default function PadelApp() {
               </h2>
             </div>
 
-            {/* Selector de Tipo de Ranking */}
             <div className="grid grid-cols-2 gap-2 bg-[#0B1D35] p-1.5 rounded-2xl border border-cyan-900">
               <button
                 onClick={() => setTipoRanking('pozos')}
@@ -559,7 +541,6 @@ export default function PadelApp() {
             </div>
 
             <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl overflow-hidden shadow-xl">
-              {/* Líder #1 */}
               {rankingOrdenado.length > 0 && (
                 <div className={`p-4 text-slate-950 flex items-center justify-between ${tipoRanking === 'pozos' ? 'bg-gradient-to-r from-cyan-400 to-blue-500' : 'bg-gradient-to-r from-amber-400 to-amber-300'}`}>
                   <div className="flex items-center gap-3">
@@ -616,13 +597,13 @@ export default function PadelApp() {
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-white">Acceso Restringido</h3>
-                  <p className="text-xs text-cyan-200 mt-1">Introduce el PIN de organizador para acceder a la gestión de torneos y cierre de puntos.</p>
+                  <p className="text-xs text-cyan-200 mt-1">Introduce el PIN de organizador (1234).</p>
                 </div>
 
                 <form onSubmit={handleLoginOrganizador} className="space-y-3 pt-2">
                   <input
                     type="password"
-                    placeholder="PIN (ej. 1234)"
+                    placeholder="PIN (1234)"
                     value={pinAdmin}
                     onChange={(e) => setPinAdmin(e.target.value)}
                     className="w-full bg-[#112948] border border-cyan-900 rounded-2xl p-3 text-center text-lg font-black text-white tracking-widest focus:outline-none focus:border-cyan-400"
@@ -658,7 +639,7 @@ export default function PadelApp() {
                   </div>
                 )}
 
-                {/* Crear y Gestionar Torneos */}
+                {/* Crear Evento */}
                 <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 p-4 rounded-3xl space-y-4 shadow-xl">
                   <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
                     <Shield className="w-4 h-4 text-cyan-400" /> Crear Nuevo Evento
@@ -667,7 +648,7 @@ export default function PadelApp() {
                   <form onSubmit={handleCrearEvento} className="space-y-3">
                     <input
                       type="text"
-                      placeholder="Título (ej. Torneo Express de Otoño)"
+                      placeholder="Título del evento"
                       value={nuevoTituloEvento}
                       onChange={(e) => setNuevoTituloEvento(e.target.value)}
                       className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-bold"
@@ -696,7 +677,7 @@ export default function PadelApp() {
                       type="submit"
                       className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all active:scale-95"
                     >
-                      Publicar Evento Nuevo
+                      Publicar Evento
                     </button>
                   </form>
 
@@ -716,16 +697,16 @@ export default function PadelApp() {
                   </div>
                 </div>
 
-                {/* Cierre Rápido de Puntos */}
+                {/* CIERRE DE PUNTOS CON DISTINCIÓN PRINCIPAL / CONSOLACIÓN */}
                 <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 p-4 rounded-3xl space-y-3.5 shadow-xl">
                   <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                    <Award className="w-4 h-4 text-cyan-400" /> Cierre de Puntos (Pozos o Torneo)
+                    <Award className="w-4 h-4 text-cyan-400" /> Cierre de Puntos & Clasificación
                   </h3>
 
                   <form onSubmit={handleGuardarCierre} className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Categoría</label>
+                        <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Modalidad</label>
                         <select
                           value={cierreTipoEvento}
                           onChange={(e) => setCierreTipoEvento(e.target.value as 'Pozo' | 'Torneo')}
@@ -750,46 +731,90 @@ export default function PadelApp() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Resultado / Posición</label>
-                      <select
-                        value={cierrePista}
-                        onChange={(e) => setCierrePista(e.target.value)}
-                        className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-bold"
-                      >
-                        <option value="1">Campeón / Pista 1 - Base 100 pts</option>
-                        <option value="2">Subcampeón / Pista 2 - Base 75 pts</option>
-                        <option value="3">Semifinalista - Base 50 pts</option>
-                        <option value="4">Fase de Grupos - Base 25 pts</option>
-                      </select>
-                    </div>
+                    {cierreTipoEvento === 'Pozo' ? (
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Pista Final en el Pozo</label>
+                        <select
+                          value={cierrePista}
+                          onChange={(e) => setCierrePista(e.target.value)}
+                          className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold"
+                        >
+                          <option value="1">Pista 1 (Rey) - Base 100 pts</option>
+                          <option value="2">Pista 2 - Base 75 pts</option>
+                          <option value="3">Pista 3 - Base 50 pts</option>
+                          <option value="4">Pista 4 - Base 25 pts</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 p-3 bg-[#112948] rounded-2xl border border-cyan-900">
+                        <div>
+                          <label className="block text-[10px] font-extrabold text-cyan-300 uppercase mb-1">Cuadro del Torneo</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCierreCuadro('principal')}
+                              className={`py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                                cierreCuadro === 'principal' ? 'bg-amber-400 text-slate-950' : 'bg-[#18365C] text-cyan-200 border border-cyan-800'
+                              }`}
+                            >
+                              🏆 Principal
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCierreCuadro('consolacion')}
+                              className={`py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                                cierreCuadro === 'consolacion' ? 'bg-emerald-400 text-slate-950' : 'bg-[#18365C] text-cyan-200 border border-cyan-800'
+                              }`}
+                            >
+                              🛡️ Consolación
+                            </button>
+                          </div>
+                        </div>
 
-                    <div className="flex items-center justify-between p-3 bg-[#112948] rounded-xl border border-cyan-900">
-                      <span className="text-xs font-bold text-white">¿Victoria destacada / Bonus?</span>
-                      <button
-                        type="button"
-                        onClick={() => setCierreGano(!cierreGano)}
-                        className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
-                          cierreGano ? 'bg-cyan-400 text-slate-950' : 'bg-[#1A3D6C] text-cyan-300'
-                        }`}
-                      >
-                        {cierreGano ? 'SÍ (+Bonus)' : 'NO (+0 pts)'}
-                      </button>
-                    </div>
+                        <div>
+                          <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Fase / Ronda Alcanzada</label>
+                          <select
+                            value={cierreRondaTorneo}
+                            onChange={(e) => setCierreRondaTorneo(e.target.value)}
+                            className="w-full bg-[#18365C] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold"
+                          >
+                            <option value="campeon">{cierreCuadro === 'principal' ? '🥇 Campeón (200 pts)' : '🏆 Campeón Consolación (50 pts)'}</option>
+                            <option value="subcampeon">{cierreCuadro === 'principal' ? '🥈 Subcampeón (140 pts)' : '🥈 Subcampeón Consolación (35 pts)'}</option>
+                            <option value="semifinal">{cierreCuadro === 'principal' ? '🥉 Semifinalista (90 pts)' : '🥉 Semifinalista Consolación (20 pts)'}</option>
+                            {cierreCuadro === 'principal' && <option value="cuartos">Quartos de Final (60 pts)</option>}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {cierreTipoEvento === 'Pozo' && (
+                      <div className="flex items-center justify-between p-3 bg-[#112948] rounded-xl border border-cyan-900">
+                        <span className="text-xs font-bold text-white">¿Victoria en último partido?</span>
+                        <button
+                          type="button"
+                          onClick={() => setCierreGano(!cierreGano)}
+                          className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                            cierreGano ? 'bg-cyan-400 text-slate-950' : 'bg-[#1A3D6C] text-cyan-300'
+                          }`}
+                        >
+                          {cierreGano ? 'SÍ (+Bonus)' : 'NO'}
+                        </button>
+                      </div>
+                    )}
 
                     <button
                       type="submit"
                       className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
                     >
-                      Sumar Puntos al Ranking ({cierreTipoEvento})
+                      Guardar Puntos en el Ranking
                     </button>
                   </form>
                 </div>
 
-                {/* Añadir Jugador al Club */}
+                {/* Registrar Jugador */}
                 <div className="bg-[#18365C]/90 border border-cyan-900 p-4 rounded-3xl space-y-2.5">
                   <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5 text-cyan-400" /> Registrar Nuevo Jugador en el Club
+                    <Plus className="w-3.5 h-3.5 text-cyan-400" /> Registrar Jugador
                   </h4>
 
                   <form onSubmit={handleAgregarJugador} className="space-y-2">
@@ -823,7 +848,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA PERFIL Y CONFIGURACIÓN */}
+        {/* PESTAÑA PERFIL */}
         {activeTab === 'perfil' && (
           <div className="space-y-4">
             <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-6 text-center space-y-4 shadow-xl">
