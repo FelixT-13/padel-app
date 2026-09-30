@@ -65,6 +65,8 @@ export default function PadelApp() {
   // Mapa de inscripciones: { [eventoId]: nombrePareja }
   const [inscritosMap, setInscritosMap] = useState<{[key: number]: string}>({ 1: 'Lidia Martin' });
   const [participantesEventoMap, setParticipantesEventoMap] = useState<{[key: number]: string[]}>({ 1: ['1','2','3','4'], 2: ['1','2','3','4'] });
+  const [ladoPorJugador, setLadoPorJugador] = useState<{[key: string]: 'derecha' | 'reves'}>({ '1': 'derecha', '2': 'reves', '3': 'derecha', '4': 'reves' });
+  const [partidosEventoMap, setPartidosEventoMap] = useState<{[key: number]: any[]}>({});
   
   const [eventoRegistrandoId, setEventoRegistrandoId] = useState<number | null>(null);
   const [nombreParejaInput, setNombreParejaInput] = useState('');
@@ -161,11 +163,30 @@ export default function PadelApp() {
     }
   };
 
+  const generarPartidosTorneo = (eventoId: number, parejaA: string, parejaB: string) => {
+    const rivales = [
+      ['Angel Ruiz', 'Rober Sanchez'],
+      ['Lidia Martin', 'Jugador C'],
+      ['Jugador D', 'Jugador E'],
+    ];
+    const base = Date.now();
+    const nuevos = [
+      { id: base + 1, eventoId, fase: 'grupos', ronda: 'Jornada 1', nombre: 'Grupo A · Jornada 1', hora: '10:00h', parej1: [parejaA, parejaB], pareja2: rivales[0], resultado: '' },
+      { id: base + 2, eventoId, fase: 'grupos', ronda: 'Jornada 2', nombre: 'Grupo A · Jornada 2', hora: '11:00h', parej1: [parejaA, parejaB], pareja2: rivales[1], resultado: '' },
+      { id: base + 3, eventoId, fase: 'grupos', ronda: 'Jornada 3', nombre: 'Grupo A · Jornada 3', hora: '12:00h', parej1: [parejaA, parejaB], pareja2: rivales[2], resultado: '' },
+      { id: base + 4, eventoId, fase: 'eliminatoria', ronda: 'Cuartos / Cruce', nombre: 'Cuadro · Eliminatoria', hora: '13:30h', parej1: [parejaA, parejaB], pareja2: ['Clasificado grupo', 'Clasificado grupo'], resultado: '' },
+    ];
+    setPartidosEventoMap(prev => ({ ...prev, [eventoId]: nuevos }));
+  };
+
   const handleConfirmarInscripcion = (eventoId: number) => {
     const parejaNombre = nombreParejaInput.trim();
     if (!parejaNombre) return;
 
     setMiPerfil(prev => ({ ...prev, lado: ladoInscripcion }));
+    const miJugador = ranking.find((j) => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
+    const parejaJugador = ranking.find((j) => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
+    setLadoPorJugador(prev => ({ ...prev, ...(miJugador ? { [miJugador.id]: ladoInscripcion } : {}), ...(parejaJugador ? { [parejaJugador.id]: ladoParejaInscripcion } : {}) }));
     setRanking(prev => prev.map(j =>
       j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase()
         ? { ...j, lado: ladoInscripcion }
@@ -175,12 +196,15 @@ export default function PadelApp() {
     ));
 
     setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
-    const parejaJugador = ranking.find((j) => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
-    const miJugador = ranking.find((j) => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
     setParticipantesEventoMap(prev => ({
       ...prev,
       [eventoId]: Array.from(new Set([...(prev[eventoId] || []), miJugador?.id, parejaJugador?.id].filter(Boolean) as string[]))
     }));
+    const evento = eventos.find(ev => ev.id === eventoId);
+    if (evento?.tipo === 'Torneo') generarPartidosTorneo(eventoId, miPerfil.nombreCompleto, parejaNombre);
+    else setPartidosEventoMap(prev => ({ ...prev, [eventoId]: [{ id: Date.now(), eventoId, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: [miPerfil.nombreCompleto, parejaNombre], pareja2: ['Angel Ruiz', 'Rober Sanchez'], resultado: '' }] }));
+    setEventoActivoId(eventoId);
+    setActiveTab('pistas');
     setEventoRegistrandoId(null);
     setNombreParejaInput('');
     setMensajeExito(`¡Inscripción confirmada! ${miPerfil.nombreCompleto}: ${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ${parejaNombre}: ${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`);
@@ -299,6 +323,7 @@ export default function PadelApp() {
 
   const ladoDeJugador = (nombre: string) => {
     const jugador = ranking.find((j) => j.nombre === nombre);
+    if (jugador && ladoPorJugador[jugador.id]) return ladoPorJugador[jugador.id];
     return jugador?.lado || (nombre === miPerfil.nombreCompleto ? miPerfil.lado : 'derecha');
   };
 
@@ -360,11 +385,10 @@ export default function PadelApp() {
   const fantasyGastado = fantasySeleccionados.reduce((sum, j) => sum + j.valor, 0);
   const fantasySaldo = fantasyPresupuesto - fantasyGastado;
   const fantasyPts = fantasySeleccionados.reduce((sum, j) => sum + j.fantasyPts, 0);
-  const partidosVisibles = pistas.filter((p) => {
-    const nombres = [...p.parej1, ...p.pareja2];
-    if (esOrganizador) return true;
-    return Boolean(miPerfil.nombreCompleto) && nombres.includes(miPerfil.nombreCompleto);
-  });
+  const partidosDelEvento = eventoActivoId ? (partidosEventoMap[eventoActivoId] || []) : [];
+  const partidosVisibles = esOrganizador
+    ? partidosDelEvento
+    : partidosDelEvento.filter((p) => [...p.parej1, ...p.pareja2].includes(miPerfil.nombreCompleto));
 
   const rankingOrdenado = [...ranking].sort((a, b) => {
     if (tipoRanking === 'pozos') {
@@ -670,95 +694,37 @@ export default function PadelApp() {
 
                 {eventoSeleccionado.tipo === 'Torneo' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-1 bg-[#f4f7f5] p-1 rounded-xl border border-slate-200">
-                      <button
-                        onClick={() => setFaseTorneo('grupos')}
-                        className={`py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${
-                          faseTorneo === 'grupos' ? 'bg-emerald-500 text-white' : 'text-slate-500'
-                        }`}
-                      >
-                        📊 Grupos
-                      </button>
-                      <button
-                        onClick={() => setFaseTorneo('principal')}
-                        className={`py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${
-                          faseTorneo === 'principal' ? 'bg-amber-400 text-white' : 'text-slate-500'
-                        }`}
-                      >
-                        🏆 Principal
-                      </button>
-                      <button
-                        onClick={() => setFaseTorneo('consolacion')}
-                        className={`py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${
-                          faseTorneo === 'consolacion' ? 'bg-emerald-400 text-white' : 'text-slate-500'
-                        }`}
-                      >
-                        🛡️ Consolación
-                      </button>
+                    <div className="rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Tu torneo</span>
+                          <h3 className="mt-1 text-lg font-black text-slate-900">{eventoSeleccionado.titulo}</h3>
+                          <p className="mt-1 text-[10px] text-slate-500">Primero cuadro de grupos · después eliminatoria · mínimo 4 partidos.</p>
+                        </div>
+                        <span className="rounded-xl bg-amber-50 px-2 py-1 text-[9px] font-black uppercase text-amber-700">TORNEO</span>
+                      </div>
                     </div>
-
-                    {faseTorneo === 'grupos' && (
-                      <div className="space-y-3">
-                        <div className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4 space-y-3 shadow-xl">
-                          <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                            <span className="text-xs font-black text-emerald-700 uppercase">Grupo A (Liguilla)</span>
-                            <span className="text-[10px] bg-emerald-500 text-white font-bold px-2 py-0.5 rounded">Mín. 3 partidos</span>
-                          </div>
-                          <div className="space-y-2 text-xs">
-                            <div className="flex justify-between items-center bg-[#f4f7f5] p-2.5 rounded-xl">
-                              <span className="font-bold text-slate-900">1. {miPerfil.nombreCompleto} & {parejaInscritaActual}</span>
-                              <span className="text-emerald-700 font-mono font-bold">2 PJ • 6 pts</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-[#f4f7f5] p-2.5 rounded-xl">
-                              <span className="font-bold text-slate-900">2. Angel Ruiz & Rober Sanchez</span>
-                              <span className="text-emerald-700 font-mono font-bold">2 PJ • 4 pts</span>
-                            </div>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => setFaseTorneo('grupos')} className={`rounded-xl py-2 text-[10px] font-black uppercase ${faseTorneo === 'grupos' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>📊 Cuadro / Grupos</button>
+                      <button onClick={() => setFaseTorneo('principal')} className={`rounded-xl py-2 text-[10px] font-black uppercase ${faseTorneo === 'principal' ? 'bg-amber-400 text-white' : 'bg-slate-100 text-slate-500'}`}>🏆 Eliminatoria</button>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <div><h3 className="font-black text-slate-900">{faseTorneo === 'grupos' ? 'Cuadro de grupos' : 'Cuadro de eliminatoria'}</h3><p className="text-[10px] text-slate-500">{faseTorneo === 'grupos' ? '3 partidos garantizados en la fase inicial.' : 'Tras el cuadro, avanzas al cruce eliminatorio.'}</p></div>
+                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-black text-emerald-700">{partidosVisibles.length}/4 partidos</span>
                       </div>
-                    )}
-
-                    {faseTorneo === 'principal' && (
-                      <div className="bg-white/90 border-2 border-amber-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
-                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                          <span className="text-xs font-black text-amber-300 uppercase flex items-center gap-1">
-                            <Trophy className="w-3.5 h-3.5" /> Cuadro Principal
-                          </span>
-                        </div>
-                        <div className="space-y-3 text-xs">
-                          <div className="bg-[#f4f7f5] p-3 rounded-xl border border-slate-200 space-y-1">
-                            <span className="text-[9px] text-amber-300 font-bold uppercase block">Semifinal 1</span>
-                            <div className="flex justify-between font-bold text-slate-900">
-                              <span>{miPerfil.nombreCompleto} & {parejaInscritaActual} vs Pareja C</span>
-                              <span className="text-emerald-600 font-mono">Sáb 12:00</span>
-                            </div>
+                      <div className="space-y-2">
+                        {partidosVisibles.map((p, idx) => (
+                          <div key={p.id || idx} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                            <div className="flex items-center justify-between gap-2"><span className="text-[9px] font-black uppercase text-emerald-700">{p.fase === 'grupos' ? `Grupo · ${p.ronda}` : 'Eliminatoria · ' + p.ronda}</span><span className="text-[9px] font-bold text-slate-500">{p.hora}</span></div>
+                            <div className="mt-2 flex items-center justify-between gap-2"><div className="min-w-0"><b className="block text-xs text-slate-900 truncate">{p.parej1[0]} / {p.parej1[1]}</b><span className="text-[9px] text-slate-500">{etiquetaLado(ladoDeJugador(p.parej1[0]))} · {etiquetaLado(ladoDeJugador(p.parej1[1]))}</span></div><span className="text-[10px] font-black text-slate-400">VS</span><div className="min-w-0 text-right"><b className="block text-xs text-slate-900 truncate">{p.pareja2[0]} / {p.pareja2[1]}</b><span className="text-[9px] text-slate-500">{etiquetaLado(ladoDeJugador(p.pareja2[0]))} · {etiquetaLado(ladoDeJugador(p.pareja2[1]))}</span></div></div>
                           </div>
-                          <div className="bg-gradient-to-r from-amber-500/20 to-blue-500/20 p-3 rounded-xl border border-amber-400/40 space-y-1 text-center">
-                            <span className="text-[10px] text-amber-300 font-black uppercase block">🏆 GRAN FINAL PRINCIPAL</span>
-                            <p className="font-bold text-slate-900">Lucha por el título de Campeones</p>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    )}
-
-                    {faseTorneo === 'consolacion' && (
-                      <div className="bg-white/90 border-2 border-emerald-400/40 rounded-3xl p-4 space-y-3 shadow-xl">
-                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                          <span className="text-xs font-black text-emerald-300 uppercase flex items-center gap-1">
-                            <GitBranch className="w-3.5 h-3.5" /> Cuadro de Consolación
-                          </span>
-                        </div>
-                        <div className="space-y-3 text-xs">
-                          <p className="text-[11px] text-emerald-700">Garantiza el mínimo de 4 partidos disputados por pareja.</p>
-                          <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-500/30 space-y-1 text-center">
-                            <span className="text-[10px] text-emerald-300 font-black uppercase block">🛡️ FINAL DE CONSOLACIÓN</span>
-                            <p className="font-bold text-slate-900">Lucha por el título secundario</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )}
+
               </div>
             )}
           </div>
@@ -792,7 +758,7 @@ export default function PadelApp() {
                     <div className="mt-4 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} plazas ocupadas</span>
                       {inscrito ? (
-                        <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
+                        <button onClick={() => { setEventoActivoId(evento.id); if (!partidosEventoMap[evento.id]) { if (evento.tipo === 'Torneo') generarPartidosTorneo(evento.id, miPerfil.nombreCompleto || 'Felix Gomez', inscritosMap[evento.id] || 'Lidia Martin'); else setPartidosEventoMap(prev => ({ ...prev, [evento.id]: [{ id: Date.now(), eventoId: evento.id, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: [miPerfil.nombreCompleto || 'Felix Gomez', inscritosMap[evento.id] || 'Lidia Martin'], pareja2: ['Angel Ruiz', 'Rober Sanchez'], resultado: '' }] })); } setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
                       ) : (
                         <button onClick={() => { setEventoRegistrandoId(evento.id); setLadoInscripcion(miPerfil.lado); setLadoParejaInscripcion(miPerfil.lado === 'derecha' ? 'reves' : 'derecha'); }} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white shadow-md">Apuntarme</button>
                       )}
