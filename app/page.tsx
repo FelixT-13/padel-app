@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { 
   Calendar, Trophy, User, Settings, Users, 
   MapPin, Award, Plus, Shuffle, Share2, 
-  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye, X
+  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye, X, LogOut, LogIn
 } from 'lucide-react';
 
 const JUGADORES_INICIALES = [
@@ -38,6 +38,11 @@ const EVENTOS_INICIALES = [
 ];
 
 export default function PadelApp() {
+  // Estado de Autenticación / Login inicial
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginNombreInput, setLoginNombreInput] = useState('');
+  const [loginNivelInput, setLoginNivelInput] = useState('4.0');
+
   const [activeTab, setActiveTab] = useState<'eventos' | 'pistas' | 'rankings' | 'admin' | 'perfil'>('eventos');
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
 
@@ -64,7 +69,7 @@ export default function PadelApp() {
   const [nuevoClubEvento, setNuevoClubEvento] = useState('Club Pádel Center');
   const [nuevoPrecioEvento, setNuevoPrecioEvento] = useState('12');
 
-  // Perfil del Usuario
+  // Perfil del Usuario Logueado
   const [miPerfil, setMiPerfil] = useState({ nombre: 'Felix', nivel: 4.0, club: 'Pádel Club Central' });
 
   const [pistas, setPistas] = useState([
@@ -84,6 +89,47 @@ export default function PadelApp() {
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoNivel, setNuevoNivel] = useState('3.5');
 
+  // Manejar Login / Identificación
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const nombreTrim = loginNombreInput.trim();
+    if (!nombreTrim) return;
+
+    const nivelNum = parseFloat(loginNivelInput) || 4.0;
+
+    // Actualizar perfil activo
+    setMiPerfil({ ...miPerfil, nombre: nombreTrim, nivel: nivelNum });
+
+    // Comprobar si ya existe en el ranking del club, si no, añadirlo
+    setRanking(prev => {
+      const existe = prev.some(j => j.nombre.toLowerCase() === nombreTrim.toLowerCase());
+      if (!existe) {
+        return [...prev, {
+          id: Date.now().toString(),
+          nombre: nombreTrim,
+          nivel: nivelNum,
+          pozos: 0,
+          puntosPozos: 0,
+          torneosJugados: 0,
+          puntosTorneos: 0,
+          racha: '-'
+        }];
+      }
+      return prev;
+    });
+
+    setIsLoggedIn(true);
+    setMensajeExito(`¡Bienvenido/a de nuevo, ${nombreTrim}! 🎾`);
+    setTimeout(() => setMensajeExito(''), 3000);
+  };
+
+  const handleSeleccionarJugadorClub = (jugador: any) => {
+    setMiPerfil({ ...miPerfil, nombre: jugador.nombre, nivel: jugador.nivel });
+    setIsLoggedIn(true);
+    setMensajeExito(`¡Sesión iniciada como ${jugador.nombre}! 🎾`);
+    setTimeout(() => setMensajeExito(''), 3000);
+  };
+
   const handleLoginOrganizador = (e: React.FormEvent) => {
     e.preventDefault();
     if (pinAdmin === '1234') {
@@ -101,7 +147,7 @@ export default function PadelApp() {
 
     setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
     
-    // Añadir automáticamente al jugador al ranking si no existe para que se le puedan asignar puntos
+    // Añadir automáticamente al jugador al ranking si no existe
     setRanking(prev => {
       const existe = prev.some(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
       if (!existe) {
@@ -271,6 +317,84 @@ export default function PadelApp() {
     }
   });
 
+  // SI NO ESTÁ LOGUEADO, MOSTRAR PANTALLA DE LOGIN / IDENTIFICACIÓN
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-[#112948] text-slate-100 font-sans p-5 max-w-md mx-auto flex flex-col justify-center items-center border-x border-[#1A3D6C] shadow-2xl">
+        <div className="w-full space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-cyan-400 to-blue-500 text-slate-950 font-black text-3xl flex items-center justify-center mx-auto shadow-lg">
+              🎾
+            </div>
+            <h1 className="text-2xl font-black tracking-wider text-white uppercase">
+              PÁDEL MATCH <span className="text-xs bg-cyan-400 text-slate-950 px-2 py-0.5 rounded font-extrabold">WPT</span>
+            </h1>
+            <p className="text-xs text-cyan-200">Identifícate para entrar a tu área de jugador y torneos</p>
+          </div>
+
+          {mensajeExito && (
+            <div className="bg-cyan-400 text-slate-950 p-3 rounded-2xl text-xs font-black text-center shadow-lg">
+              {mensajeExito}
+            </div>
+          )}
+
+          {/* Opción 1: Seleccionar jugador existente */}
+          <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-5 space-y-3 shadow-xl">
+            <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300 block">Selecciona tu perfil en el club:</span>
+            <div className="grid grid-cols-2 gap-2">
+              {ranking.map((j) => (
+                <button
+                  key={j.id}
+                  onClick={() => handleSeleccionarJugadorClub(j)}
+                  className="bg-[#112948] hover:bg-cyan-500 hover:text-slate-950 border border-cyan-900 p-3 rounded-2xl text-left font-bold text-xs transition-all flex items-center justify-between group"
+                >
+                  <span className="truncate text-white group-hover:text-slate-950">{j.nombre}</span>
+                  <span className="text-[10px] text-cyan-300 group-hover:text-slate-950">({j.nivel})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Opción 2: Registrarse o entrar con nuevo nombre */}
+          <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-5 space-y-4 shadow-xl">
+            <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300 block">O introduce tu nombre de jugador:</span>
+            
+            <form onSubmit={handleLogin} className="space-y-3">
+              <div>
+                <label className="block text-[10px] text-cyan-200 font-bold uppercase mb-1">Tu Nombre y Apellido</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Carlos Pádel"
+                  value={loginNombreInput}
+                  onChange={(e) => setLoginNombreInput(e.target.value)}
+                  className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-cyan-200 font-bold uppercase mb-1">Nivel Estimado</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={loginNivelInput}
+                  onChange={(e) => setLoginNivelInput(e.target.value)}
+                  className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" /> Entrar a la App
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#112948] text-slate-100 font-sans pb-32 max-w-md mx-auto relative border-x border-[#1A3D6C] shadow-2xl">
       {/* Marcador Superior Estilo WPT */}
@@ -283,15 +407,15 @@ export default function PadelApp() {
             <h1 className="text-base font-black tracking-wider text-white uppercase flex items-center gap-1.5">
               PÁDEL MATCH <span className="text-[10px] bg-cyan-400 text-slate-950 px-1.5 py-0.5 rounded font-extrabold">WPT</span>
             </h1>
-            <p className="text-[10px] text-cyan-200/80 font-medium">Circuito Privado de Pádel</p>
+            <p className="text-[10px] text-cyan-200/80 font-medium">Jugando como: <strong className="text-cyan-300">{miPerfil.nombre}</strong></p>
           </div>
         </div>
 
         <button 
           onClick={() => setActiveTab('perfil')}
-          className="bg-[#1A3D6C] border border-cyan-500/40 text-white text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 active:scale-95 transition-all"
+          className="bg-[#1A3D6C] border border-cyan-500/40 text-white text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1 active:scale-95 transition-all shadow-sm"
         >
-          <User className="w-3.5 h-3.5 text-cyan-300" /> {miPerfil.nombre} ({miPerfil.nivel.toFixed(1)})
+          <User className="w-3.5 h-3.5 text-cyan-300" /> {miPerfil.nombre}
         </button>
       </header>
 
@@ -918,11 +1042,11 @@ export default function PadelApp() {
               </div>
               <div>
                 <h2 className="text-lg font-black text-white">{miPerfil.nombre}</h2>
-                <p className="text-xs text-cyan-200">Jugador & Miembro del Club</p>
+                <p className="text-xs text-cyan-200">Jugador Activo & Miembro del Club</p>
               </div>
 
               <div className="bg-[#112948] p-4 rounded-2xl border border-cyan-900 space-y-3 text-left">
-                <h3 className="text-xs font-black text-cyan-400 uppercase tracking-wider">Configurar Perfil</h3>
+                <h3 className="text-xs font-black text-cyan-400 uppercase tracking-wider">Ajustes de Perfil</h3>
                 
                 <div className="space-y-2">
                   <div>
@@ -947,7 +1071,7 @@ export default function PadelApp() {
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
                   <button 
                     onClick={() => {
                       setMensajeExito('¡Perfil actualizado con éxito!');
@@ -957,6 +1081,13 @@ export default function PadelApp() {
                     className="w-full bg-cyan-400 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wider"
                   >
                     Guardar Cambios
+                  </button>
+
+                  <button 
+                    onClick={() => setIsLoggedIn(false)}
+                    className="w-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5"
+                  >
+                    <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión / Cambiar Usuario
                   </button>
                 </div>
               </div>
@@ -986,7 +1117,7 @@ export default function PadelApp() {
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <span><span>{item.label}</span></span>
               </button>
             );
           })}
