@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { 
   Calendar, Trophy, User, Settings, Users, 
   MapPin, Award, Plus, Shuffle, Share2, 
-  CheckCircle2
+  CheckCircle2, Flame, Sparkles
 } from 'lucide-react';
 
 const JUGADORES_INICIALES = [
@@ -40,10 +40,10 @@ const EVENTOS_INICIALES = [
 export default function PadelApp() {
   const [activeTab, setActiveTab] = useState<'eventos' | 'pistas' | 'rankings' | 'admin'>('eventos');
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
-  const [inscritos, setInscritos] = useState<number[]>([1]); // Felix inscrito en el 1 por defecto
+  const [inscritos, setInscritos] = useState<number[]>([1]);
 
   const [pistas, setPistas] = useState([
-    { numero: 1, nombre: 'Pista Central', parej1: ['Felix', 'Lidia'], pareja2: ['Angel', 'Rober'] },
+    { numero: 1, nombre: 'Pista 1 • Central WPT', parej1: ['Felix', 'Lidia'], pareja2: ['Angel', 'Rober'] },
     { numero: 2, nombre: 'Pista 2', parej1: ['Jugador 5', 'Jugador 6'], pareja2: ['Jugador 7', 'Jugador 8'] },
   ]);
 
@@ -84,7 +84,7 @@ export default function PadelApp() {
         .sort((a, b) => b.puntos - a.puntos)
     );
 
-    setMensajeExito(`¡+${pts} Puntos para ${cierreJugador}!`);
+    setMensajeExito(`¡+${pts} Pts asignados a ${cierreJugador}!`);
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
@@ -103,7 +103,7 @@ export default function PadelApp() {
 
     setRanking((prev) => [...prev, nuevo].sort((a, b) => b.puntos - a.puntos));
     setNuevoNombre('');
-    setMensajeExito(`¡${nuevo.nombre} añadido al club!`);
+    setMensajeExito(`¡${nuevo.nombre} guardado en el ranking!`);
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
@@ -114,7 +114,7 @@ export default function PadelApp() {
     setPistas([
       {
         numero: 1,
-        nombre: 'Pista Central',
+        nombre: 'Pista 1 • Central WPT',
         parej1: [mezclados[0] || 'Felix', mezclados[1] || 'Lidia'],
         pareja2: [mezclados[2] || 'Angel', mezclados[3] || 'Rober'],
       },
@@ -128,7 +128,7 @@ export default function PadelApp() {
   };
 
   const compartirEvento = (evento: any) => {
-    const texto = `🎾 *${evento.tipo.toUpperCase()} - PÁDEL CLUB* 🎾\n\n🏆 *${evento.titulo}*\n📅 *Fecha:* ${evento.fecha}\n📍 *Lugar:* ${evento.club}\n\n👉 ¡Apúntate en nuestra app!`;
+    const texto = `🎾 *${evento.titulo.toUpperCase()}* 🎾\n📅 ${evento.fecha}\n📍 ${evento.club}\n\n👉 ¡Apúntate en nuestra app del club!`;
     if (navigator.share) {
       navigator.share({ title: evento.titulo, text: texto, url: window.location.href }).catch(() => {});
     } else {
@@ -137,88 +137,98 @@ export default function PadelApp() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-32 max-w-md mx-auto relative shadow-2xl overflow-x-hidden">
-      {/* Header Premium Light */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl p-5 border-b border-slate-200 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-600/30">
-            P
+    <div className="min-h-screen bg-[#112948] text-slate-100 font-sans pb-32 max-w-md mx-auto relative border-x border-[#1A3D6C] shadow-2xl">
+      {/* Marcador Superior Estilo WPT */}
+      <header className="sticky top-0 z-30 bg-[#0B1D35]/95 backdrop-blur-md p-4 border-b-2 border-cyan-400/30 flex justify-between items-center shadow-lg">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-blue-500 text-slate-950 font-black text-xl flex items-center justify-center shadow-md">
+            🎾
           </div>
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
-              PádelClub
+            <h1 className="text-base font-black tracking-wider text-white uppercase flex items-center gap-1.5">
+              PÁDEL MATCH <span className="text-[10px] bg-cyan-400 text-slate-950 px-1.5 py-0.5 rounded font-extrabold">WPT</span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">Torneos & Pozos</p>
+            <p className="text-[10px] text-cyan-200/80 font-medium">Circuito Privado de Pádel</p>
           </div>
         </div>
-        <button className="bg-slate-100 hover:bg-slate-200 text-indigo-600 text-sm p-2 rounded-xl font-bold transition-colors">
-          <User className="w-5 h-5" />
-        </button>
+
+        <div className="bg-[#1A3D6C] border border-cyan-500/40 text-white text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
+          <User className="w-3.5 h-3.5 text-cyan-300" /> Felix (4.0)
+        </div>
       </header>
 
-      <main className="p-5 space-y-6 animate-in fade-in duration-300">
+      <main className="p-4 space-y-5">
         
-        {/* EVENTOS */}
+        {/* PESTAÑA EVENTOS */}
         {activeTab === 'eventos' && (
-          <div className="space-y-5">
-            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Próximos Eventos</h2>
-            
-            <div className="space-y-5">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xs font-black tracking-widest text-cyan-200 uppercase flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-cyan-400" /> Próximos Partidos & Torneos
+              </h2>
+            </div>
+
+            <div className="space-y-4">
               {EVENTOS_INICIALES.map((evento) => {
                 const isInscrito = inscritos.includes(evento.id);
                 const isPozo = evento.tipo === 'Pozo';
                 const pct = Math.round((evento.plazas_ocupadas / evento.plazas_totales) * 100);
 
                 return (
-                  <div key={evento.id} className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 relative overflow-hidden transition-all">
-                    {/* Elemento decorativo de fondo */}
-                    <div className={`absolute -right-8 -top-8 w-32 h-32 rounded-full blur-2xl opacity-60 ${isPozo ? 'bg-emerald-200' : 'bg-indigo-200'}`}></div>
-                    
-                    <div className="flex justify-between items-start relative z-10">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full ${
-                        isPozo ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'
+                  <div key={evento.id} className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4.5 space-y-3.5 relative overflow-hidden shadow-xl">
+                    <div className="flex justify-between items-start">
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
+                        isPozo 
+                          ? 'bg-cyan-400 text-slate-950 border-cyan-300 font-extrabold' 
+                          : 'bg-amber-400 text-slate-950 border-amber-300 font-extrabold'
                       }`}>
                         {evento.tipo}
                       </span>
-                      <button onClick={() => compartirEvento(evento)} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-full transition-colors">
+
+                      <button onClick={() => compartirEvento(evento)} className="text-cyan-200 hover:text-white bg-[#112948] p-2 rounded-full border border-cyan-500/40">
                         <Share2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="mt-4 relative z-10">
-                      <h3 className="text-xl font-extrabold text-slate-900 leading-tight">{evento.titulo}</h3>
-                      <div className="mt-3 space-y-2 text-sm font-medium text-slate-500">
-                        <p className="flex items-center gap-2"><Calendar className="w-4 h-4 text-slate-400" /> {evento.fecha}</p>
-                        <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" /> {evento.club}</p>
-                      </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white leading-tight">{evento.titulo}</h3>
+                      <p className="text-xs text-cyan-100 mt-1.5 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-cyan-400" /> {evento.club}
+                      </p>
+                      <p className="text-xs text-cyan-100 mt-0.5 flex items-center gap-1.5">
+                        <Flame className="w-3.5 h-3.5 text-amber-400" /> {evento.fecha}
+                      </p>
                     </div>
 
-                    <div className="mt-5 pt-5 border-t border-slate-100 relative z-10">
-                      <div className="flex justify-between text-xs font-bold mb-2">
-                        <span className="text-slate-500">Ocupación</span>
-                        <span className="text-slate-900">{evento.plazas_ocupadas} / {evento.plazas_totales}</span>
+                    {/* Medidor Ocupación */}
+                    <div className="bg-[#112948] p-3 rounded-2xl border border-cyan-900 space-y-1.5">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-cyan-200">Jugadores Confirmados</span>
+                        <span className="text-white font-mono">{evento.plazas_ocupadas} / {evento.plazas_totales}</span>
                       </div>
-                      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-[#0B1D35] h-2.5 rounded-full overflow-hidden p-0.5 border border-cyan-950">
                         <div 
-                          className={`h-full rounded-full transition-all duration-500 ${isPozo ? 'bg-emerald-500' : 'bg-indigo-500'}`} 
+                          className={`h-full rounded-full transition-all duration-300 ${isPozo ? 'bg-cyan-400' : 'bg-amber-400'}`} 
                           style={{ width: `${pct}%` }} 
                         />
                       </div>
                     </div>
 
-                    <div className="mt-5 flex items-center gap-3 relative z-10">
-                      <div className="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
-                        <span className="block text-lg font-black text-slate-900">{evento.precio}€</span>
+                    {/* Precio y Botón */}
+                    <div className="pt-1 flex items-center justify-between gap-3">
+                      <div className="bg-[#112948] px-3 py-2 rounded-xl border border-cyan-900">
+                        <span className="text-sm font-black text-white">{evento.precio}€</span>
                       </div>
+
                       <button
                         onClick={() => handleInscribirse(evento.id)}
-                        className={`flex-1 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm ${
+                        className={`flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-md ${
                           isInscrito
-                            ? 'bg-slate-900 text-white'
-                            : (isPozo ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200')
+                            ? 'bg-[#1A3D6C] text-cyan-300 border-2 border-cyan-400'
+                            : 'bg-cyan-400 text-slate-950 hover:bg-cyan-300'
                         }`}
                       >
-                        {isInscrito ? <><CheckCircle2 className="w-5 h-5" /> Apuntado</> : 'Inscribirme'}
+                        {isInscrito ? <><CheckCircle2 className="w-4 h-4" /> Ya estás en lista</> : 'Inscribirme'}
                       </button>
                     </div>
                   </div>
@@ -228,57 +238,53 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PISTAS DE SALIDA - ESTILO WPT (AZUL) */}
+        {/* PESTAÑA PISTAS DE SALIDA (PISTA AZUL WPT REALISTA) */}
         {activeTab === 'pistas' && (
-          <div className="space-y-5">
-            <div className="flex justify-between items-end">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Pistas</h2>
-                <p className="text-sm font-medium text-slate-500 mt-1">Distribución de la ronda</p>
+                <h2 className="text-xs font-black tracking-widest text-cyan-200 uppercase flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan-400" /> Reparto de Pistas
+                </h2>
+                <p className="text-[10px] text-cyan-300">Ronda 1 de salida</p>
               </div>
+
               <button
                 onClick={handleMezclarPistas}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-xl flex items-center gap-2 font-bold active:scale-95 transition-all shadow-md shadow-indigo-600/20"
+                className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 active:scale-95 transition-all shadow-md"
               >
-                <Shuffle className="w-4 h-4" /> Sortear
+                <Shuffle className="w-3.5 h-3.5" /> Sortear
               </button>
             </div>
 
             {pistas.map((p) => (
-              <div key={p.numero} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.06)] space-y-4">
+              <div key={p.numero} className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4 space-y-3 shadow-xl">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-black text-slate-900 flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                    {p.nombre}
+                  <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> {p.nombre}
                   </span>
-                  <span className="text-xs bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded-lg">Ronda 1</span>
+                  <span className="text-[10px] bg-[#112948] text-cyan-300 font-bold px-2.5 py-0.5 rounded-full border border-cyan-900">
+                    Sube-Baja
+                  </span>
                 </div>
 
-                {/* Pista Realista Azul WPT */}
-                <div className="relative bg-[#2068A8] h-48 rounded-xl p-2 w-full border-[6px] border-slate-200 flex flex-col justify-between overflow-hidden shadow-inner">
-                  {/* Líneas perimetrales e interiores */}
-                  <div className="absolute inset-1 border-2 border-white/60 pointer-events-none"></div>
-                  <div className="absolute top-1/2 left-0 right-0 border-t-[3px] border-white shadow-[0_4px_10px_rgba(0,0,0,0.4)] w-full -translate-y-1/2 z-10"></div>
-                  <div className="absolute top-1 bottom-1 left-1/2 border-l-2 border-white/60 -translate-x-1/2 pointer-events-none z-0"></div>
-                  <div className="absolute top-1/4 left-1 right-1 border-t-2 border-white/60 pointer-events-none z-0"></div>
-                  <div className="absolute bottom-1/4 left-1 right-1 border-t-2 border-white/60 pointer-events-none z-0"></div>
+                {/* MINIATURA PISTA AZUL WPT */}
+                <div className="relative bg-[#174F8A] border-4 border-white rounded-2xl p-3 overflow-hidden shadow-inner">
+                  {/* Línea Central de Red */}
+                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 border-r-2 border-dashed border-white/80 z-10" />
 
-                  {/* Pareja 1 (Arriba) */}
-                  <div className="relative z-20 flex justify-center items-center h-full pb-2">
-                     <div className="bg-white/95 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-lg text-center flex gap-3 items-center border border-white/30">
-                        <span className="text-xs font-black text-slate-900">{p.parej1[0]}</span>
-                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                        <span className="text-xs font-black text-slate-900">{p.parej1[1]}</span>
-                     </div>
-                  </div>
-                  
-                  {/* Pareja 2 (Abajo) */}
-                  <div className="relative z-20 flex justify-center items-center h-full pt-2">
-                     <div className="bg-white/95 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-lg text-center flex gap-3 items-center border border-white/30">
-                        <span className="text-xs font-black text-slate-900">{p.pareja2[0]}</span>
-                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                        <span className="text-xs font-black text-slate-900">{p.pareja2[1]}</span>
-                     </div>
+                  <div className="grid grid-cols-2 gap-3 relative z-20">
+                    <div className="bg-white text-slate-900 rounded-xl p-2.5 text-center shadow-md space-y-0.5">
+                      <span className="text-[9px] font-black text-blue-700 uppercase block">PAREJA A</span>
+                      <p className="text-xs font-black">{p.parej1[0]}</p>
+                      <p className="text-xs font-black">{p.parej1[1]}</p>
+                    </div>
+
+                    <div className="bg-white text-slate-900 rounded-xl p-2.5 text-center shadow-md space-y-0.5">
+                      <span className="text-[9px] font-black text-blue-700 uppercase block">PAREJA B</span>
+                      <p className="text-xs font-black">{p.pareja2[0]}</p>
+                      <p className="text-xs font-black">{p.pareja2[1]}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -286,46 +292,46 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* RANKING */}
+        {/* PESTAÑA RANKING */}
         {activeTab === 'rankings' && (
-          <div className="space-y-5">
-            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Clasificación</h2>
-            
-            <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
-              {/* TOP 1 Destacado */}
+          <div className="space-y-4">
+            <h2 className="text-xs font-black tracking-widest text-cyan-200 uppercase flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-cyan-400" /> Clasificación General
+            </h2>
+
+            <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl overflow-hidden shadow-xl">
+              {/* Líder #1 */}
               {ranking.length > 0 && (
-                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 text-white relative overflow-hidden">
-                  <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4"></div>
-                  <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-white text-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg">🥇</div>
-                      <div>
-                        <h3 className="text-xl font-black">{ranking[0].nombre}</h3>
-                        <p className="text-indigo-100 text-xs font-medium mt-0.5">Líder Absoluto • {ranking[0].racha}</p>
-                      </div>
+                <div className="bg-gradient-to-r from-cyan-400 to-blue-500 p-4 text-slate-950 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-950 text-cyan-300 font-black text-lg flex items-center justify-center">
+                      🥇
                     </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-black block">{ranking[0].puntos}</span>
-                      <span className="text-[10px] text-indigo-200 font-bold uppercase tracking-wider">PTS</span>
+                    <div>
+                      <h3 className="text-base font-black">{ranking[0].nombre}</h3>
+                      <p className="text-[10px] font-extrabold text-slate-900 uppercase">Líder del Pozo</p>
                     </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xl font-black block">{ranking[0].puntos}</span>
+                    <span className="text-[9px] font-black uppercase">PUNTOS</span>
                   </div>
                 </div>
               )}
 
-              {/* Resto de la Lista */}
-              <div className="p-2">
+              <div className="divide-y divide-cyan-900/60 p-1">
                 {ranking.slice(1).map((jugador, index) => (
-                  <div key={jugador.id} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors">
-                    <div className="flex items-center gap-4">
-                      <span className="w-6 text-center text-sm font-black text-slate-400">
+                  <div key={jugador.id} className="flex items-center justify-between p-3.5 hover:bg-[#112948]/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 text-center text-xs font-black text-cyan-300">
                         {index === 0 ? '🥈' : index === 1 ? '🥉' : `${index + 3}º`}
                       </span>
                       <div>
-                        <h4 className="font-bold text-slate-900 text-sm">{jugador.nombre}</h4>
-                        <p className="text-xs text-slate-500 font-medium">Nivel {jugador.nivel.toFixed(1)} • {jugador.pozos} pozos</p>
+                        <h4 className="font-extrabold text-white text-xs">{jugador.nombre}</h4>
+                        <p className="text-[10px] text-cyan-200">Nivel {jugador.nivel.toFixed(1)} • {jugador.pozos} pozos</p>
                       </div>
                     </div>
-                    <span className="font-black text-indigo-600">{jugador.puntos} pts</span>
+                    <span className="font-black text-xs text-cyan-300">{jugador.puntos} pts</span>
                   </div>
                 ))}
               </div>
@@ -333,30 +339,27 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* ADMIN / CIERRE */}
+        {/* PESTAÑA CIERRE / ADMIN */}
         {activeTab === 'admin' && (
-          <div className="space-y-6">
-             <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Gestión de Club</h2>
-
+          <div className="space-y-4">
             {mensajeExito && (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-2xl text-sm font-bold flex items-center gap-2 shadow-sm">
-                <CheckCircle2 className="w-5 h-5" /> {mensajeExito}
+              <div className="bg-cyan-400 text-slate-950 p-3 rounded-2xl text-xs font-black animate-bounce shadow-lg">
+                {mensajeExito}
               </div>
             )}
 
-            {/* Formulario Cierre */}
-            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] space-y-5">
-              <h3 className="font-black text-slate-900 flex items-center gap-2 text-lg">
-                <Award className="w-5 h-5 text-indigo-600" /> Cierre de Pozo
+            <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 p-4 rounded-3xl space-y-3.5 shadow-xl">
+              <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                <Award className="w-4 h-4 text-cyan-400" /> Cierre Rápido de Pozo
               </h3>
 
-              <form onSubmit={handleGuardarCierre} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">Jugador</label>
+              <form onSubmit={handleGuardarCierre} className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Jugador</label>
                   <select
                     value={cierreJugador}
                     onChange={(e) => setCierreJugador(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"
+                    className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-bold"
                   >
                     {ranking.map((j) => (
                       <option key={j.id} value={j.nombre}>{j.nombre} ({j.puntos} pts)</option>
@@ -364,53 +367,56 @@ export default function PadelApp() {
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">Pista Final</label>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-cyan-200 uppercase mb-1">Pista Final Alcanzada</label>
                   <select
                     value={cierrePista}
                     onChange={(e) => setCierrePista(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"
+                    className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-bold"
                   >
-                    <option value="1">Pista 1 (Central) - Base 100 pts</option>
+                    <option value="1">Pista 1 (Pista del Rey) - Base 100 pts</option>
                     <option value="2">Pista 2 - Base 75 pts</option>
                     <option value="3">Pista 3 - Base 50 pts</option>
                     <option value="4">Pista 4 - Base 25 pts</option>
                   </select>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-sm font-bold text-slate-700">¿Ganó su último partido?</span>
+                <div className="flex items-center justify-between p-3 bg-[#112948] rounded-xl border border-cyan-900">
+                  <span className="text-xs font-bold text-white">¿Ganó su último partido?</span>
                   <button
                     type="button"
                     onClick={() => setCierreGano(!cierreGano)}
-                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${
-                      cierreGano ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-slate-200 text-slate-500'
+                    className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                      cierreGano ? 'bg-cyan-400 text-slate-950' : 'bg-[#1A3D6C] text-cyan-300'
                     }`}
                   >
                     {cierreGano ? 'SÍ (+Bonus)' : 'NO (+0 pts)'}
                   </button>
                 </div>
 
-                <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-xl text-sm transition-all active:scale-95 shadow-lg">
-                  Guardar Resultado
+                <button
+                  type="submit"
+                  className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3.5 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
+                >
+                  Sumar Puntos al Ranking
                 </button>
               </form>
             </div>
 
-            {/* Formulario Añadir Jugador */}
-            <div className="bg-white border border-slate-100 p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] space-y-4">
-              <h3 className="font-black text-slate-900 flex items-center gap-2">
-                <Plus className="w-5 h-5 text-indigo-600" /> Nuevo Jugador
-              </h3>
+            {/* Añadir Jugador */}
+            <div className="bg-[#18365C]/90 border border-cyan-900 p-4 rounded-3xl space-y-2.5">
+              <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-cyan-400" /> Añadir Jugador
+              </h4>
 
-              <form onSubmit={handleAgregarJugador} className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
+              <form onSubmit={handleAgregarJugador} className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
                   <input
                     type="text"
                     placeholder="Nombre"
                     value={nuevoNombre}
                     onChange={(e) => setNuevoNombre(e.target.value)}
-                    className="col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                    className="col-span-2 bg-[#112948] border border-cyan-900 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                   />
                   <input
                     type="number"
@@ -418,11 +424,14 @@ export default function PadelApp() {
                     placeholder="Nivel"
                     value={nuevoNivel}
                     onChange={(e) => setNuevoNivel(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                    className="bg-[#112948] border border-cyan-900 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                   />
                 </div>
-                <button type="submit" className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3.5 rounded-xl text-sm transition-all active:scale-95">
-                  Añadir al Club
+                <button
+                  type="submit"
+                  className="w-full bg-[#1A3D6C] hover:bg-[#234F8C] text-white font-bold py-2.5 rounded-xl text-xs transition-all active:scale-95"
+                >
+                  Guardar
                 </button>
               </form>
             </div>
@@ -430,11 +439,11 @@ export default function PadelApp() {
         )}
       </main>
 
-      {/* Navegación Flotante Píldora (Ingeniosa y Premium) */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-slate-200/50 p-2 rounded-3xl z-40 shadow-[0_10px_40px_rgb(0,0,0,0.1)] w-[90%] max-w-sm">
-        <div className="flex justify-between items-center px-2">
+      {/* Navegación Inferior Fija de App */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0B1D35]/95 backdrop-blur-lg border-t-2 border-cyan-400/30 p-2 max-w-md mx-auto z-40">
+        <div className="flex justify-around items-center">
           {[
-            { id: 'eventos', icon: Calendar, label: 'Inicio' },
+            { id: 'eventos', icon: Calendar, label: 'Eventos' },
             { id: 'pistas', icon: Users, label: 'Pistas' },
             { id: 'rankings', icon: Trophy, label: 'Ranking' },
             { id: 'admin', icon: Settings, label: 'Cierre' },
@@ -445,16 +454,12 @@ export default function PadelApp() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id as any)}
-                className={`flex flex-col items-center gap-1 p-2.5 px-4 rounded-2xl transition-all duration-300 ${
-                  isActive ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                className={`flex flex-col items-center gap-1 p-1.5 text-[10px] font-bold transition-all active:scale-95 ${
+                  isActive ? 'text-cyan-400' : 'text-cyan-200/60'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
-                {isActive && (
-                  <span className="text-[10px] font-bold">
-                    {item.label}
-                  </span>
-                )}
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
               </button>
             );
           })}
