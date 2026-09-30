@@ -15,7 +15,7 @@ const EVENTOS_INICIALES = [
     fecha: 'Sábado, 11 Oct • 10:00h',
     club: 'Club Pádel Center',
     plazas_totales: 8,
-    plazas_ocupadas: 6,
+    plazas_ocupadas: 0,
     precioUnitario: 12,
   },
   {
@@ -25,7 +25,7 @@ const EVENTOS_INICIALES = [
     fecha: '24-26 Oct • Cat. Abierta',
     club: 'Pádel Indoor Madrid',
     plazas_totales: 6,
-    plazas_ocupadas: 4,
+    plazas_ocupadas: 0,
     precioUnitario: 20,
   }
 ];
@@ -63,8 +63,8 @@ export default function PadelApp() {
 
 
   // Mapa de inscripciones: { [eventoId]: nombrePareja }
-  const [inscritosMap, setInscritosMap] = useState<{[key: number]: string}>({ 1: 'Lidia Martin' });
-  const [participantesEventoMap, setParticipantesEventoMap] = useState<{[key: number]: string[]}>({ 1: ['1','2','3','4'], 2: ['1','2','3','4'] });
+  // Inscripciones reales del evento. El ranking NO implica estar inscrito en ningún evento.
+  const [participantesEventoMap, setParticipantesEventoMap] = useState<{[key: number]: string[]}>({});
   const [ladoPorJugador, setLadoPorJugador] = useState<{[key: string]: 'derecha' | 'reves'}>({ '1': 'derecha', '2': 'reves', '3': 'derecha', '4': 'reves' });
   const [partidosEventoMap, setPartidosEventoMap] = useState<{[key: number]: any[]}>({});
   const [jugadoresSinParejaMap, setJugadoresSinParejaMap] = useState<{[key: number]: string[]}>({});
@@ -91,11 +91,6 @@ export default function PadelApp() {
   const [nuevoTipoEvento, setNuevoTipoEvento] = useState('Pozo');
   const [nuevoClubEvento, setNuevoClubEvento] = useState('Club Pádel Center');
   const [nuevoPrecioEvento, setNuevoPrecioEvento] = useState('12');
-
-  const [pistas, setPistas] = useState([
-    { numero: 1, nombre: 'Pista 1 • Central', pareja1: ['Felix Gomez', 'Lidia Martin'], pareja2: ['Angel Ruiz', 'Rober Sanchez'] },
-    { numero: 2, nombre: 'Pista 2', pareja1: ['Jugador 5', 'Jugador 6'], pareja2: ['Jugador 7', 'Jugador 8'] },
-  ]);
 
   // Cierre admin
   const [cierreJugador, setCierreJugador] = useState('Felix Gomez');
@@ -232,55 +227,190 @@ export default function PadelApp() {
   };
 
   const handleConfirmarInscripcion = (eventoId: number) => {
-    const miJugador = ranking.find(j => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
-    if (!miJugador) return;
-    const parejaNombre = nombreParejaInput.trim();
+    const miJugador = ranking.find(
+      j => j.nombre.trim().toLowerCase() === miPerfil.nombreCompleto.trim().toLowerCase()
+    );
     const evento = eventos.find(ev => ev.id === eventoId);
-    if (!evento) return;
-    const inscripcionActual = miInscripcionEventoMap[eventoId];
-    if (inscripcionActual) {
+
+    if (!miJugador || !evento) {
+      setMensajeExito('No se ha podido identificar tu jugador o el evento.');
+      setTimeout(() => setMensajeExito(''), 3000);
+      return;
+    }
+
+    if (evento.plazas_ocupadas >= evento.plazas_totales) {
+      setMensajeExito('Este evento ya está completo.');
+      setTimeout(() => setMensajeExito(''), 3000);
+      return;
+    }
+
+    if (miInscripcionEventoMap[eventoId]) {
       setMensajeExito('Ya estás inscrito en este evento.');
       setTimeout(() => setMensajeExito(''), 2500);
       return;
     }
+
+    const participantesActuales = participantesEventoMap[eventoId] || [];
+    const parejasActuales = parejasEventoMap[eventoId] || [];
+
+    // Guardamos el lado del jugador actual aunque todavía no tenga pareja.
     setLadoPorJugador(prev => ({ ...prev, [miJugador.id]: ladoInscripcion }));
-    setRanking(prev => prev.map(j => j.id === miJugador.id ? { ...j, lado: ladoInscripcion } : j));
+    setRanking(prev => prev.map(j =>
+      j.id === miJugador.id ? { ...j, lado: ladoInscripcion } : j
+    ));
+
     if (modoInscripcion === 'solo') {
-      const participantes = Array.from(new Set([...(participantesEventoMap[eventoId] || []), miJugador.id]));
-      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: participantes }));
-      const pendientes = Array.from(new Set([...(jugadoresSinParejaMap[eventoId] || []), miPerfil.nombreCompleto]));
-      emparejarJugadoresSolos(eventoId, pendientes);
-      setMiInscripcionEventoMap(prev => ({ ...prev, [eventoId]: { modo: 'solo', pareja: null } }));
-      setInscritosMap(prev => ({ ...prev, [eventoId]: '' }));
-      setEventoRegistrandoId(null);
-      setMensajeExito(pendientes.length >= 2 ? '¡Pareja formada! Se ha hecho el sorteo aleatorio. 🏓' : '¡Apuntado! Estás esperando pareja.');
-    } else {
-      if (!parejaNombre) { setMensajeExito('Escribe el nombre de tu pareja para continuar.'); setTimeout(() => setMensajeExito(''), 2500); return; }
-      const parejaJugador = ranking.find(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
-      if (!parejaJugador) { setMensajeExito('No encuentro ese jugador en Padel Arena.'); setTimeout(() => setMensajeExito(''), 2500); return; }
-      if (parejaJugador.id === miJugador.id) { setMensajeExito('No puedes seleccionarte como pareja.'); setTimeout(() => setMensajeExito(''), 2500); return; }
-      const parejaYaInscrita = (participantesEventoMap[eventoId] || []).includes(parejaJugador.id);
-      if (parejaYaInscrita && (parejasEventoMap[eventoId] || []).some(p => p.includes(parejaJugador.nombre))) {
-        setMensajeExito(`${parejaJugador.nombre} ya está inscrito en este evento.`);
+      if (participantesActuales.includes(miJugador.id)) {
+        setMensajeExito('Ya figuras como participante en este evento.');
         setTimeout(() => setMensajeExito(''), 2500);
         return;
       }
-      setLadoPorJugador(prev => ({ ...prev, [parejaJugador.id]: ladoParejaInscripcion }));
-      setRanking(prev => prev.map(j => j.id === parejaJugador.id ? { ...j, lado: ladoParejaInscripcion } : j));
-      const participantes = Array.from(new Set([...(participantesEventoMap[eventoId] || []), miJugador.id, parejaJugador.id]));
-      const nuevasParejas = [...(parejasEventoMap[eventoId] || []), [miPerfil.nombreCompleto, parejaJugador.nombre]];
-      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: participantes }));
-      setParejasEventoMap(prev => ({ ...prev, [eventoId]: nuevasParejas }));
-      setMiInscripcionEventoMap(prev => ({ ...prev, [eventoId]: { modo: 'pareja', pareja: [miPerfil.nombreCompleto, parejaJugador.nombre] } }));
-      setInscritosMap(prev => ({ ...prev, [eventoId]: parejaJugador.nombre }));
-      setEventos(prev => prev.map(ev => ev.id === eventoId ? { ...ev, plazas_ocupadas: Math.min(ev.plazas_totales, ev.plazas_ocupadas + 1) } : ev));
-      if (evento.tipo === 'Pozo') generarSorteoPozo(eventoId, nuevasParejas); else crearCalendarioTorneo(eventoId, nuevasParejas);
-      setEventoActivoId(eventoId);
-      setMensajeExito(`¡Inscripción confirmada! ${miPerfil.nombreCompleto} · ${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ${parejaJugador.nombre} · ${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`);
-    }
-    setActiveTab('pistas'); setNombreParejaInput(''); setTimeout(() => setMensajeExito(''), 3500);
-  };
 
+      const participantes = [...participantesActuales, miJugador.id];
+      const pendientes = Array.from(new Set([
+        ...(jugadoresSinParejaMap[eventoId] || []),
+        miPerfil.nombreCompleto.trim()
+      ]));
+
+      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: participantes }));
+      setJugadoresSinParejaMap(prev => ({ ...prev, [eventoId]: pendientes }));
+      setMiInscripcionEventoMap(prev => ({
+        ...prev,
+        [eventoId]: { modo: 'solo', pareja: null }
+      }));
+
+      // Una inscripción individual todavía NO ocupa una plaza de pareja.
+      emparejarJugadoresSolos(eventoId, pendientes);
+
+      setEventoActivoId(eventoId);
+      setEventoRegistrandoId(null);
+      setNombreParejaInput('');
+      setModoInscripcion('pareja');
+      setActiveTab('pistas');
+
+      setMensajeExito(
+        pendientes.length >= 2
+          ? '¡Pareja formada! Se ha hecho el sorteo aleatorio. 🏓'
+          : '¡Apuntado! Estás esperando pareja.'
+      );
+      setTimeout(() => setMensajeExito(''), 3500);
+      return;
+    }
+
+    const parejaNombre = nombreParejaInput.trim();
+
+    if (!parejaNombre) {
+      setMensajeExito('Escribe el nombre de tu pareja para continuar.');
+      setTimeout(() => setMensajeExito(''), 2500);
+      return;
+    }
+
+    const parejaJugador = ranking.find(
+      j => j.nombre.trim().toLowerCase() === parejaNombre.toLowerCase()
+    );
+
+    if (!parejaJugador) {
+      setMensajeExito('No encuentro ese jugador en Padel Arena.');
+      setTimeout(() => setMensajeExito(''), 2500);
+      return;
+    }
+
+    if (parejaJugador.id === miJugador.id) {
+      setMensajeExito('No puedes seleccionarte como pareja.');
+      setTimeout(() => setMensajeExito(''), 2500);
+      return;
+    }
+
+    // El compañero debe estar disponible EN ESTE EVENTO.
+    if (participantesActuales.includes(parejaJugador.id)) {
+      setMensajeExito(`${parejaJugador.nombre} ya está inscrito en este evento.`);
+      setTimeout(() => setMensajeExito(''), 3000);
+      return;
+    }
+
+    const parejaDuplicada = parejasActuales.some(
+      p => p.length === 2 &&
+        p.some(nombre => nombre.trim().toLowerCase() === parejaJugador.nombre.trim().toLowerCase())
+    );
+
+    if (parejaDuplicada) {
+      setMensajeExito(`${parejaJugador.nombre} ya tiene pareja en este evento.`);
+      setTimeout(() => setMensajeExito(''), 3000);
+      return;
+    }
+
+    const nuevaPareja = [miPerfil.nombreCompleto.trim(), parejaJugador.nombre.trim()];
+    const nuevasParejas = [...parejasActuales, nuevaPareja];
+    const participantes = Array.from(new Set([
+      ...participantesActuales,
+      miJugador.id,
+      parejaJugador.id
+    ]));
+
+    setLadoPorJugador(prev => ({
+      ...prev,
+      [miJugador.id]: ladoInscripcion,
+      [parejaJugador.id]: ladoParejaInscripcion
+    }));
+
+    setRanking(prev => prev.map(j => {
+      if (j.id === miJugador.id) return { ...j, lado: ladoInscripcion };
+      if (j.id === parejaJugador.id) return { ...j, lado: ladoParejaInscripcion };
+      return j;
+    }));
+
+    setParticipantesEventoMap(prev => ({
+      ...prev,
+      [eventoId]: participantes
+    }));
+
+    setParejasEventoMap(prev => ({
+      ...prev,
+      [eventoId]: nuevasParejas
+    }));
+
+    setMiInscripcionEventoMap(prev => ({
+      ...prev,
+      [eventoId]: {
+        modo: 'pareja',
+        pareja: nuevaPareja
+      }
+    }));
+
+    setEventos(prev => prev.map(ev =>
+      ev.id === eventoId
+        ? {
+            ...ev,
+            plazas_ocupadas: Math.min(
+              ev.plazas_totales,
+              ev.plazas_ocupadas + 1
+            )
+          }
+        : ev
+    ));
+
+    // Generamos los partidos usando directamente la nueva colección,
+    // no el estado anterior de React.
+    if (evento.tipo === 'Pozo') {
+      generarSorteoPozo(eventoId, nuevasParejas);
+    } else {
+      crearCalendarioTorneo(eventoId, nuevasParejas);
+    }
+
+    setEventoActivoId(eventoId);
+    setEventoRegistrandoId(null);
+    setNombreParejaInput('');
+    setModoInscripcion('pareja');
+    setActiveTab('pistas');
+
+    setMensajeExito(
+      `¡Inscripción confirmada! ${miPerfil.nombreCompleto} · ` +
+      `${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ` +
+      `${parejaJugador.nombre} · ` +
+      `${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`
+    );
+    setTimeout(() => setMensajeExito(''), 3500);
+  };
 
   const handleComprarFantasy = (id: string) => {
     if (fantasyEquipo.length >= 2 || fantasyEquipo.includes(id)) return;
@@ -306,7 +436,10 @@ export default function PadelApp() {
 
     // Si se apuntó como pareja, sale la pareja completa.
     // Si se apuntó solo y el sistema ya le emparejó, también sale esa pareja completa.
-    const parejaRegistrada = (parejasEventoMap[eventoId] || []).find(p => p.includes(miPerfil.nombreCompleto));
+    const nombreMiJugador = miPerfil.nombreCompleto.trim().toLowerCase();
+    const parejaRegistrada = (parejasEventoMap[eventoId] || []).find(
+      p => p.some(nombre => nombre.trim().toLowerCase() === nombreMiJugador)
+    );
     const parejaARemover = parejaRegistrada || inscripcion.pareja;
     const nombresARemover = parejaARemover || [miPerfil.nombreCompleto];
 
@@ -338,8 +471,6 @@ export default function PadelApp() {
     }));
 
     setMiInscripcionEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
-    setInscritosMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
-
     // Una plaza de pareja menos. En modo solo, la plaza solo cuenta si llegó a formar pareja.
     if (parejaARemover) {
       setEventos(prev => prev.map(ev =>
@@ -349,6 +480,9 @@ export default function PadelApp() {
 
     if (eventoActivoId === eventoId) setEventoActivoId(null);
     setEventoRegistrandoId(null);
+    setNombreParejaInput('');
+    setModoInscripcion('pareja');
+    setEventoActivoId(null);
     setMensajeExito('Te has borrado del evento correctamente.');
     setTimeout(() => setMensajeExito(''), 2500);
   };
@@ -432,8 +566,6 @@ export default function PadelApp() {
   };
 
   const eventoSeleccionado = eventos.find(ev => ev.id === eventoActivoId);
-  const parejaInscritaActual = eventoSeleccionado ? (inscritosMap[eventoSeleccionado.id] || 'Pareja') : 'Lidia Martin';
-
   const ladoDeJugador = (nombre: string) => {
     const jugador = ranking.find((j) => j.nombre === nombre);
     if (jugador && ladoPorJugador[jugador.id]) return ladoPorJugador[jugador.id];
@@ -669,18 +801,17 @@ export default function PadelApp() {
             <section className="relative overflow-hidden rounded-[32px] bg-[#101b17] p-5 text-white shadow-[0_18px_45px_rgba(16,185,129,.20)]">
               <div className="absolute inset-0 opacity-70" style={{backgroundImage:'radial-gradient(circle at 85% 15%, rgba(190,242,100,.35), transparent 28%), linear-gradient(135deg, rgba(16,185,129,.9), rgba(16,27,23,.98) 58%)'}} />
               <div className="absolute -right-16 -bottom-24 h-64 w-64 rounded-full border-[34px] border-lime-300/10" />
-              <div className="absolute right-5 top-5 opacity-95">
-                <svg width="112" height="128" viewBox="0 0 112 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <rect x="8" y="8" width="96" height="112" rx="18" fill="#0B1713" stroke="#D9F99D" stroke-width="2"/>
-                  <rect x="22" y="20" width="68" height="88" rx="8" stroke="white" stroke-width="2" opacity=".9"/>
-                  <path d="M56 20V108M22 64H90" stroke="white" stroke-width="2" opacity=".75"/>
-                  <path d="M22 42H90M22 86H90" stroke="white" stroke-width="1" opacity=".35"/>
-                  <path d="M38 35H74V93H38V35Z" stroke="#BEF264" stroke-width="2" opacity=".9"/>
-                  <circle cx="56" cy="64" r="8" fill="#BEF264"/>
-                  <circle cx="56" cy="64" r="3" fill="#0B1713"/>
-                  <path d="M30 114H82" stroke="#BEF264" stroke-width="4" stroke-linecap="round"/>
-                  <text x="56" y="16" text-anchor="middle" fill="white" font-size="7" font-weight="800" letter-spacing="2">PADEL</text>
-                </svg>
+              <div className="absolute right-4 top-4 opacity-95">
+                <div className="relative h-32 w-28 rotate-[-4deg] rounded-[22px] border-2 border-white/20 bg-white/10 p-2 shadow-2xl backdrop-blur-sm">
+                  <div className="relative h-full w-full overflow-hidden rounded-[15px] border-[3px] border-white/90 bg-emerald-600">
+                    <div className="absolute inset-[9%] rounded-lg border-2 border-white/90" />
+                    <div className="absolute left-1/2 top-[9%] bottom-[9%] border-l-2 border-white/90" />
+                    <div className="absolute left-[9%] right-[9%] top-1/2 border-t-2 border-white/90" />
+                    <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 bg-slate-100/80" />
+                    <div className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-lime-300 bg-lime-300/20" />
+                    <span className="absolute bottom-2 left-0 right-0 text-center text-[7px] font-black tracking-[0.22em] text-white">PADEL</span>
+                  </div>
+                </div>
               </div>
               <div className="relative z-10 max-w-[72%]">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em]">
@@ -796,8 +927,6 @@ export default function PadelApp() {
                     </div>
 
                     {partidosVisibles.map((p) => {
-                      const pareja1Actual = (p.id === partidosVisibles[0]?.id) ? [miPerfil.nombreCompleto, parejaInscritaActual] : p.pareja1;
-
                       return (
                         <div key={p.id} className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4 space-y-3 shadow-xl">
                           <div className="flex justify-between items-center">
@@ -810,8 +939,8 @@ export default function PadelApp() {
                             <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 border-r-2 border-dashed border-white/80 z-10" />
                             <div className="w-1/2 text-center relative z-20 space-y-1 pr-2">
                               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">PAREJA A</span>
-                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[0]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(pareja1Actual[0])})</span></p>
-                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[1]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(pareja1Actual[1])})</span></p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja1[0]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(p.pareja1[0])})</span></p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja1[1]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(p.pareja1[1])})</span></p>
                             </div>
                             <div className="w-1/2 text-center relative z-20 space-y-1 pl-2">
                               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">PAREJA B</span>
@@ -945,7 +1074,7 @@ export default function PadelApp() {
               <p className="mt-1 text-xs text-slate-600">Pozos y torneos organizados por la comunidad.</p>
             </div>
             {eventos.map((evento) => {
-              const inscrito = participantesEventoMap[evento.id]?.includes(ranking.find(j => j.nombre === miPerfil.nombreCompleto)?.id || '');
+              const inscrito = Boolean(miInscripcionEventoMap[evento.id]);
               return (
                 <article key={evento.id} className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
                   <div className={`h-2 ${evento.tipo === 'Pozo' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
@@ -971,7 +1100,13 @@ export default function PadelApp() {
                           )}
                         </div>
                       ) : (
-                        <button onClick={() => { setEventoRegistrandoId(evento.id); setLadoInscripcion(miPerfil.lado); setLadoParejaInscripcion(miPerfil.lado === 'derecha' ? 'reves' : 'derecha'); }} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white shadow-md">Apuntarme</button>
+                        <button onClick={() => {
+  setEventoRegistrandoId(evento.id);
+  setNombreParejaInput('');
+  setModoInscripcion('pareja');
+  setLadoInscripcion(miPerfil.lado);
+  setLadoParejaInscripcion(miPerfil.lado === 'derecha' ? 'reves' : 'derecha');
+}} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white shadow-md">Apuntarme</button>
                       )}
                     </div>
                     {eventoRegistrandoId === evento.id && (
@@ -999,7 +1134,24 @@ export default function PadelApp() {
                           <button type="button" onClick={() => setModoInscripcion('solo')} className={`rounded-xl p-2.5 text-[10px] font-black uppercase ${modoInscripcion === 'solo' ? 'bg-amber-400 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>🙋 Me apunto solo</button>
                         </div>
                         {modoInscripcion === 'pareja' ? (
-                          <input value={nombreParejaInput} onChange={e => setNombreParejaInput(e.target.value)} placeholder="Nombre de tu pareja" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-semibold text-slate-900 placeholder:text-slate-400" />
+                          <>
+                            <select
+                              value={nombreParejaInput}
+                              onChange={e => setNombreParejaInput(e.target.value)}
+                              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-semibold text-slate-900"
+                            >
+                              <option value="">Selecciona tu pareja</option>
+                              {ranking
+                                .filter(j => j.id !== (ranking.find(x => x.nombre.trim().toLowerCase() === miPerfil.nombreCompleto.trim().toLowerCase())?.id || ''))
+                                .filter(j => !(participantesEventoMap[evento.id] || []).includes(j.id))
+                                .map(j => (
+                                  <option key={j.id} value={j.nombre}>{j.nombre}</option>
+                                ))}
+                            </select>
+                            <p className="mt-1.5 text-[9px] font-semibold text-slate-500">
+                              Solo aparecen jugadores disponibles en este evento. El compañero de otro evento no se arrastra aquí.
+                            </p>
+                          </>
                         ) : (
                           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-800"><b>Sin pareja</b><br/>Te añadimos a la lista de jugadores solos. Cuando haya otra persona sola en este evento, el sistema formará automáticamente la pareja.</div>
                         )}
