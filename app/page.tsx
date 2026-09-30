@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { 
   Calendar, Trophy, User, Settings, Users, 
   MapPin, Award, Plus, Shuffle, Share2, 
-  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye
+  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye, X
 } from 'lucide-react';
 
 const JUGADORES_INICIALES = [
@@ -23,7 +23,7 @@ const EVENTOS_INICIALES = [
     club: 'Club Pádel Center',
     plazas_totales: 16,
     plazas_ocupadas: 12,
-    precio: 12,
+    precioUnitario: 12,
   },
   {
     id: 2,
@@ -33,14 +33,20 @@ const EVENTOS_INICIALES = [
     club: 'Pádel Indoor Madrid',
     plazas_totales: 12,
     plazas_ocupadas: 8,
-    precio: 20,
+    precioUnitario: 20,
   }
 ];
 
 export default function PadelApp() {
   const [activeTab, setActiveTab] = useState<'eventos' | 'pistas' | 'rankings' | 'admin' | 'perfil'>('eventos');
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
-  const [inscritos, setInscritos] = useState<number[]>([1]);
+
+  // Mapa de inscripciones: { [eventoId]: nombrePareja }
+  const [inscritosMap, setInscritosMap] = useState<{[key: number]: string}>({ 1: 'Lidia' });
+  
+  // Estado temporal para cuando se está escribiendo el nombre de la pareja al inscribirse
+  const [eventoRegistrandoId, setEventoRegistrandoId] = useState<number | null>(null);
+  const [nombreParejaInput, setNombreParejaInput] = useState('');
 
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
@@ -89,13 +95,20 @@ export default function PadelApp() {
     }
   };
 
-  const handleInscribirse = (id: number) => {
-    if (inscritos.includes(id)) {
-      setInscritos(inscritos.filter((item) => item !== id));
-      if (eventoActivoId === id) setEventoActivoId(null);
-    } else {
-      setInscritos([...inscritos, id]);
-    }
+  const handleConfirmarInscripcion = (eventoId: number) => {
+    if (!nombreParejaInput.trim()) return;
+    setInscritosMap(prev => ({ ...prev, [eventoId]: nombreParejaInput.trim() }));
+    setEventoRegistrandoId(null);
+    setNombreParejaInput('');
+    setMensajeExito('¡Inscripción de pareja realizada con éxito!');
+    setTimeout(() => setMensajeExito(''), 3000);
+  };
+
+  const handleCancelarInscripcion = (eventoId: number) => {
+    const copia = { ...inscritosMap };
+    delete copia[eventoId];
+    setInscritosMap(copia);
+    if (eventoActivoId === eventoId) setEventoActivoId(null);
   };
 
   const calcularPuntosPozo = (pista: number, gano: boolean) => {
@@ -162,7 +175,7 @@ export default function PadelApp() {
       club: nuevoClubEvento,
       plazas_totales: 16,
       plazas_ocupadas: 0,
-      precio: parseInt(nuevoPrecioEvento) || 10,
+      precioUnitario: parseInt(nuevoPrecioEvento) || 10,
     };
 
     setEventos([...eventos, nuevoEv]);
@@ -173,8 +186,7 @@ export default function PadelApp() {
 
   const handleEliminarEvento = (id: number) => {
     setEventos(eventos.filter(ev => ev.id !== id));
-    setInscritos(inscritos.filter(i => i !== id));
-    if (eventoActivoId === id) setEventoActivoId(null);
+    handleCancelarInscripcion(id);
   };
 
   const handleAgregarJugador = (e: React.FormEvent) => {
@@ -206,8 +218,8 @@ export default function PadelApp() {
       {
         numero: 1,
         nombre: 'Pista 1 • Central WPT',
-        parej1: [mezclados[0] || miPerfil.nombre, mezclados[1] || 'Lidia'],
-        pareja2: [mezclados[2] || 'Angel', mezclados[3] || 'Rober'],
+        parej1: [miPerfil.nombre, 'Lidia'],
+        pareja2: [mezclados[0] || 'Angel', mezclados[1] || 'Rober'],
       },
       {
         numero: 2,
@@ -262,6 +274,12 @@ export default function PadelApp() {
       </header>
 
       <main className="p-4 space-y-5">
+
+        {mensajeExito && (
+          <div className="bg-cyan-400 text-slate-950 p-3 rounded-2xl text-xs font-black animate-bounce shadow-lg text-center">
+            {mensajeExito}
+          </div>
+        )}
         
         {/* PESTAÑA EVENTOS */}
         {activeTab === 'eventos' && (
@@ -274,9 +292,11 @@ export default function PadelApp() {
 
             <div className="space-y-4">
               {eventos.map((evento) => {
-                const isInscrito = inscritos.includes(evento.id);
+                const parejaInscrita = inscritosMap[evento.id];
+                const isInscrito = !!parejaInscrita;
                 const isPozo = evento.tipo === 'Pozo';
                 const pct = Math.round((evento.plazas_ocupadas / evento.plazas_totales) * 100);
+                const estaRegistrando = eventoRegistrandoId === evento.id;
 
                 return (
                   <div key={evento.id} className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4.5 space-y-3.5 relative overflow-hidden shadow-xl">
@@ -307,7 +327,7 @@ export default function PadelApp() {
                     {/* Medidor Ocupación */}
                     <div className="bg-[#112948] p-3 rounded-2xl border border-cyan-900 space-y-1.5">
                       <div className="flex justify-between text-xs font-bold">
-                        <span className="text-cyan-200">Jugadores Confirmados</span>
+                        <span className="text-cyan-200">Parejas Confirmadas</span>
                         <span className="text-white font-mono">{evento.plazas_ocupadas} / {evento.plazas_totales}</span>
                       </div>
                       <div className="w-full bg-[#0B1D35] h-2.5 rounded-full overflow-hidden p-0.5 border border-cyan-950">
@@ -318,39 +338,85 @@ export default function PadelApp() {
                       </div>
                     </div>
 
-                    {/* Precio y Botones de Acción Estables (Grid fija para evitar saltos de pantalla) */}
-                    <div className="pt-1 grid grid-cols-2 gap-2 items-center">
-                      <div className="bg-[#112948] px-3 py-2.5 rounded-xl border border-cyan-900 text-center">
-                        <span className="text-xs text-cyan-300 block font-bold">Precio</span>
-                        <span className="text-sm font-black text-white">{evento.precio}€</span>
+                    {/* Precio por jugador / pareja */}
+                    <div className="bg-[#112948] px-3 py-2.5 rounded-xl border border-cyan-900 flex justify-between items-center">
+                      <div>
+                        <span className="text-[10px] text-cyan-300 font-bold uppercase block">Precio por Pareja</span>
+                        <span className="text-xs text-white">({evento.precioUnitario}€ x jugador)</span>
                       </div>
+                      <span className="text-base font-black text-cyan-400">{evento.precioUnitario * 2}€</span>
+                    </div>
 
+                    {/* ZONA DE INSCRIPCIÓN / FORMULARIO DE PAREJA */}
+                    {!isInscrito && !estaRegistrando && (
                       <button
-                        onClick={() => handleInscribirse(evento.id)}
-                        className={`w-full py-3 px-2 rounded-2xl font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1 shadow-md ${
-                          isInscrito
-                            ? 'bg-[#1A3D6C] text-cyan-300 border-2 border-cyan-400'
-                            : 'bg-cyan-400 text-slate-950 hover:bg-cyan-300'
-                        }`}
+                        onClick={() => {
+                          setEventoRegistrandoId(evento.id);
+                          setNombreParejaInput('');
+                        }}
+                        className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 py-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
                       >
-                        {isInscrito ? <><CheckCircle2 className="w-3.5 h-3.5" /> Apuntado</> : 'Inscribirme'}
+                        Inscribir Pareja
                       </button>
+                    )}
 
-                      {/* Botón de Acceso a Pistas debajo o en paralelo según estado */}
-                      {isInscrito ? (
+                    {estaRegistrando && (
+                      <div className="bg-[#112948] p-3.5 rounded-2xl border border-cyan-500/50 space-y-3 animate-in fade-in duration-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-black text-cyan-300 uppercase">Indica tu Pareja</span>
+                          <button onClick={() => setEventoRegistrandoId(null)} className="text-cyan-400 hover:text-white">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Nombre y Apellido de tu pareja"
+                          value={nombreParejaInput}
+                          onChange={(e) => setNombreParejaInput(e.target.value)}
+                          className="w-full bg-[#18365C] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleConfirmarInscripcion(evento.id)}
+                            className="flex-1 bg-cyan-400 text-slate-950 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md"
+                          >
+                            Confirmar ({evento.precioUnitario * 2}€)
+                          </button>
+                          <button
+                            onClick={() => setEventoRegistrandoId(null)}
+                            className="px-3 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl font-bold text-xs"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isInscrito && (
+                      <div className="space-y-2">
+                        <div className="bg-cyan-950/50 border border-cyan-500/30 p-2.5 rounded-xl flex justify-between items-center text-xs">
+                          <span className="text-cyan-200 font-bold flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-cyan-400" /> Pareja: {miPerfil.nombre} & {parejaInscrita}
+                          </span>
+                          <button 
+                            onClick={() => handleCancelarInscripcion(evento.id)}
+                            className="text-[10px] text-rose-300 underline font-medium hover:text-rose-200"
+                          >
+                            Anular
+                          </button>
+                        </div>
+
                         <button
                           onClick={() => {
                             setEventoActivoId(evento.id);
                             setActiveTab('pistas');
                           }}
-                          className="col-span-2 w-full bg-amber-400 hover:bg-amber-300 text-slate-950 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                          className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
                         >
                           <Eye className="w-4 h-4" /> Entrar al Torneo / Ver Pistas
                         </button>
-                      ) : (
-                        <div className="col-span-2 h-11" /* Espaciador fijo invisible para mantener la misma altura exacta de tarjeta siempre */ />
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -365,7 +431,7 @@ export default function PadelApp() {
               <div className="bg-[#18365C] border border-cyan-500/30 rounded-3xl p-6 text-center space-y-3 shadow-xl">
                 <Layers className="w-10 h-10 text-cyan-400 mx-auto" />
                 <h3 className="text-base font-bold text-white">Ningún torneo seleccionado</h3>
-                <p className="text-xs text-cyan-200">Entra a uno de tus eventos inscritos desde la pestaña Eventos para ver sus pistas, grupos y cuadros.</p>
+                <p className="text-xs text-cyan-200">Entra a uno de tus eventos inscritos para ver sus pistas, grupos y cuadros.</p>
                 <button 
                   onClick={() => setActiveTab('eventos')}
                   className="bg-cyan-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider mt-2"
@@ -464,7 +530,7 @@ export default function PadelApp() {
                           </div>
                           <div className="space-y-2 text-xs">
                             <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">1. Felix & Lidia</span>
+                              <span className="font-bold text-white">1. {miPerfil.nombre} & {inscritosMap[eventoSeleccionado.id] || 'Pareja'}</span>
                               <span className="text-cyan-300 font-mono font-bold">2 PJ • 6 pts</span>
                             </div>
                             <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
@@ -487,7 +553,7 @@ export default function PadelApp() {
                           <div className="bg-[#112948] p-3 rounded-xl border border-cyan-900 space-y-1">
                             <span className="text-[9px] text-amber-300 font-bold uppercase block">Semifinal 1</span>
                             <div className="flex justify-between font-bold text-white">
-                              <span>Felix & Lidia vs Pareja C & D</span>
+                              <span>{miPerfil.nombre} & {inscritosMap[eventoSeleccionado.id] || 'Pareja'} vs Pareja C</span>
                               <span className="text-cyan-400 font-mono">Sáb 12:00</span>
                             </div>
                           </div>
@@ -643,12 +709,6 @@ export default function PadelApp() {
                   </button>
                 </div>
 
-                {mensajeExito && (
-                  <div className="bg-cyan-400 text-slate-950 p-3 rounded-2xl text-xs font-black animate-bounce shadow-lg">
-                    {mensajeExito}
-                  </div>
-                )}
-
                 <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 p-4 rounded-3xl space-y-4 shadow-xl">
                   <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
                     <Shield className="w-4 h-4 text-cyan-400" /> Crear Nuevo Evento
@@ -675,7 +735,7 @@ export default function PadelApp() {
 
                       <input
                         type="number"
-                        placeholder="Precio (€)"
+                        placeholder="Precio x Jugador (€)"
                         value={nuevoPrecioEvento}
                         onChange={(e) => setNuevoPrecioEvento(e.target.value)}
                         className="bg-[#112948] border border-cyan-900 rounded-xl p-2.5 text-xs text-white font-bold"
@@ -815,38 +875,6 @@ export default function PadelApp() {
                       className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
                     >
                       Guardar Puntos en el Ranking
-                    </button>
-                  </form>
-                </div>
-
-                <div className="bg-[#18365C]/90 border border-cyan-900 p-4 rounded-3xl space-y-2.5">
-                  <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5 text-cyan-400" /> Registrar Jugador
-                  </h4>
-
-                  <form onSubmit={handleAgregarJugador} className="space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nombre"
-                        value={nuevoNombre}
-                        onChange={(e) => setNuevoNombre(e.target.value)}
-                        className="col-span-2 bg-[#112948] border border-cyan-900 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-cyan-400"
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="Nivel"
-                        value={nuevoNivel}
-                        onChange={(e) => setNuevoNivel(e.target.value)}
-                        className="bg-[#112948] border border-cyan-900 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-cyan-400"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="w-full bg-[#1A3D6C] hover:bg-[#234F8C] text-white font-bold py-2.5 rounded-xl text-xs transition-all active:scale-95"
-                    >
-                      Guardar Jugador
                     </button>
                   </form>
                 </div>
