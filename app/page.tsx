@@ -237,8 +237,11 @@ export default function PadelApp() {
     const parejaNombre = nombreParejaInput.trim();
     const evento = eventos.find(ev => ev.id === eventoId);
     if (!evento) return;
-    if ((participantesEventoMap[eventoId] || []).includes(miJugador.id)) {
-      setEventoActivoId(eventoId); setActiveTab('pistas'); return;
+    const inscripcionActual = miInscripcionEventoMap[eventoId];
+    if (inscripcionActual) {
+      setMensajeExito('Ya estás inscrito en este evento.');
+      setTimeout(() => setMensajeExito(''), 2500);
+      return;
     }
     setLadoPorJugador(prev => ({ ...prev, [miJugador.id]: ladoInscripcion }));
     setRanking(prev => prev.map(j => j.id === miJugador.id ? { ...j, lado: ladoInscripcion } : j));
@@ -256,6 +259,12 @@ export default function PadelApp() {
       const parejaJugador = ranking.find(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
       if (!parejaJugador) { setMensajeExito('No encuentro ese jugador en Padel Arena.'); setTimeout(() => setMensajeExito(''), 2500); return; }
       if (parejaJugador.id === miJugador.id) { setMensajeExito('No puedes seleccionarte como pareja.'); setTimeout(() => setMensajeExito(''), 2500); return; }
+      const parejaYaInscrita = (participantesEventoMap[eventoId] || []).includes(parejaJugador.id);
+      if (parejaYaInscrita && (parejasEventoMap[eventoId] || []).some(p => p.includes(parejaJugador.nombre))) {
+        setMensajeExito(`${parejaJugador.nombre} ya está inscrito en este evento.`);
+        setTimeout(() => setMensajeExito(''), 2500);
+        return;
+      }
       setLadoPorJugador(prev => ({ ...prev, [parejaJugador.id]: ladoParejaInscripcion }));
       setRanking(prev => prev.map(j => j.id === parejaJugador.id ? { ...j, lado: ladoParejaInscripcion } : j));
       const participantes = Array.from(new Set([...(participantesEventoMap[eventoId] || []), miJugador.id, parejaJugador.id]));
@@ -294,22 +303,55 @@ export default function PadelApp() {
     const miJugador = ranking.find(j => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
     const inscripcion = miInscripcionEventoMap[eventoId];
     if (!miJugador || !inscripcion) return;
-    const parejaARemover = inscripcion.pareja;
-    const nuevasParejas = parejaARemover ? (parejasEventoMap[eventoId] || []).filter(p => !(p.length === 2 && p.every(nombre => parejaARemover.includes(nombre)))) : (parejasEventoMap[eventoId] || []);
+
+    // Si se apuntó como pareja, sale la pareja completa.
+    // Si se apuntó solo y el sistema ya le emparejó, también sale esa pareja completa.
+    const parejaRegistrada = (parejasEventoMap[eventoId] || []).find(p => p.includes(miPerfil.nombreCompleto));
+    const parejaARemover = parejaRegistrada || inscripcion.pareja;
+    const nombresARemover = parejaARemover || [miPerfil.nombreCompleto];
+
+    const nuevasParejas = (parejasEventoMap[eventoId] || []).filter(
+      p => !(p.length === 2 && p.some(nombre => nombresARemover.includes(nombre)))
+    );
     setParejasEventoMap(prev => ({ ...prev, [eventoId]: nuevasParejas }));
-    setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: (prev[eventoId] || []).filter(id => {
-      if (!inscripcion.pareja) return id !== miJugador.id;
-      const jugador = ranking.find(j => j.id === id);
-      return jugador ? !inscripcion.pareja.includes(jugador.nombre) : true;
-    }) }));
-    setJugadoresSinParejaMap(prev => ({ ...prev, [eventoId]: (prev[eventoId] || []).filter(n => n !== miPerfil.nombreCompleto) }));
-    setPartidosEventoMap(prev => ({ ...prev, [eventoId]: (prev[eventoId] || []).filter(p => ![...p.pareja1, ...p.pareja2].includes(miPerfil.nombreCompleto)) }));
+
+    setParticipantesEventoMap(prev => ({
+      ...prev,
+      [eventoId]: (prev[eventoId] || []).filter(id => {
+        const jugador = ranking.find(j => j.id === id);
+        return jugador ? !nombresARemover.includes(jugador.nombre) : true;
+      })
+    }));
+
+    setJugadoresSinParejaMap(prev => ({
+      ...prev,
+      [eventoId]: (prev[eventoId] || []).filter(n => !nombresARemover.includes(n))
+    }));
+
+    // No dejamos partidos antiguos mostrando una inscripción que ya no existe.
+    setPartidosEventoMap(prev => ({
+      ...prev,
+      [eventoId]: (prev[eventoId] || []).filter(p => {
+        const jugadores = [...(p.pareja1 || []), ...(p.pareja2 || [])];
+        return !jugadores.some(nombre => nombresARemover.includes(nombre));
+      })
+    }));
+
     setMiInscripcionEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
     setInscritosMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
-    if (inscripcion.pareja) setEventos(prev => prev.map(ev => ev.id === eventoId ? { ...ev, plazas_ocupadas: Math.max(0, ev.plazas_ocupadas - 1) } : ev));
-    if (eventoActivoId === eventoId) setEventoActivoId(null);
-  };
 
+    // Una plaza de pareja menos. En modo solo, la plaza solo cuenta si llegó a formar pareja.
+    if (parejaARemover) {
+      setEventos(prev => prev.map(ev =>
+        ev.id === eventoId ? { ...ev, plazas_ocupadas: Math.max(0, ev.plazas_ocupadas - 1) } : ev
+      ));
+    }
+
+    if (eventoActivoId === eventoId) setEventoActivoId(null);
+    setEventoRegistrandoId(null);
+    setMensajeExito('Te has borrado del evento correctamente.');
+    setTimeout(() => setMensajeExito(''), 2500);
+  };
 
   const calcularPuntosPozo = (pista: number, gano: boolean) => {
     const base = 100 - (pista - 1) * 25;
@@ -628,11 +670,16 @@ export default function PadelApp() {
               <div className="absolute inset-0 opacity-70" style={{backgroundImage:'radial-gradient(circle at 85% 15%, rgba(190,242,100,.35), transparent 28%), linear-gradient(135deg, rgba(16,185,129,.9), rgba(16,27,23,.98) 58%)'}} />
               <div className="absolute -right-16 -bottom-24 h-64 w-64 rounded-full border-[34px] border-lime-300/10" />
               <div className="absolute right-5 top-5 opacity-95">
-                <svg width="92" height="120" viewBox="0 0 92 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <rect x="25" y="4" width="42" height="68" rx="18" transform="rotate(12 25 4)" fill="#D9F99D" stroke="white" stroke-width="3"/>
-                  <circle cx="39" cy="25" r="3" fill="#101B17"/><circle cx="51" cy="28" r="3" fill="#101B17"/><circle cx="34" cy="39" r="3" fill="#101B17"/><circle cx="47" cy="42" r="3" fill="#101B17"/><circle cx="59" cy="45" r="3" fill="#101B17"/>
-                  <path d="M47 69L59 112" stroke="white" stroke-width="9" stroke-linecap="round"/><path d="M52 78L63 116" stroke="#D9F99D" stroke-width="4" stroke-linecap="round"/>
-                  <circle cx="77" cy="25" r="9" fill="white"/><path d="M73 25L77 21L81 25L77 29L73 25Z" fill="#101B17"/>
+                <svg width="112" height="128" viewBox="0 0 112 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <rect x="8" y="8" width="96" height="112" rx="18" fill="#0B1713" stroke="#D9F99D" stroke-width="2"/>
+                  <rect x="22" y="20" width="68" height="88" rx="8" stroke="white" stroke-width="2" opacity=".9"/>
+                  <path d="M56 20V108M22 64H90" stroke="white" stroke-width="2" opacity=".75"/>
+                  <path d="M22 42H90M22 86H90" stroke="white" stroke-width="1" opacity=".35"/>
+                  <path d="M38 35H74V93H38V35Z" stroke="#BEF264" stroke-width="2" opacity=".9"/>
+                  <circle cx="56" cy="64" r="8" fill="#BEF264"/>
+                  <circle cx="56" cy="64" r="3" fill="#0B1713"/>
+                  <path d="M30 114H82" stroke="#BEF264" stroke-width="4" stroke-linecap="round"/>
+                  <text x="56" y="16" text-anchor="middle" fill="white" font-size="7" font-weight="800" letter-spacing="2">PADEL</text>
                 </svg>
               </div>
               <div className="relative z-10 max-w-[72%]">
@@ -917,7 +964,12 @@ export default function PadelApp() {
                     <div className="mt-4 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} parejas inscritas</span>
                       {inscrito ? (
-                        <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
+                          {miInscripcionEventoMap[evento.id] && (
+                            <button onClick={() => handleCancelarInscripcion(evento.id)} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-600">Borrarme</button>
+                          )}
+                        </div>
                       ) : (
                         <button onClick={() => { setEventoRegistrandoId(evento.id); setLadoInscripcion(miPerfil.lado); setLadoParejaInscripcion(miPerfil.lado === 'derecha' ? 'reves' : 'derecha'); }} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white shadow-md">Apuntarme</button>
                       )}
