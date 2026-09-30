@@ -4,20 +4,13 @@ import React, { useState } from 'react';
 import { 
   Calendar, Trophy, User, Settings, Users, 
   MapPin, Award, Plus, Shuffle, Share2, 
-  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye, X, LogOut, LogIn
+  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye, X, LogOut, LogIn, Phone, Hash
 } from 'lucide-react';
-
-const JUGADORES_INICIALES = [
-  { id: '1', nombre: 'Felix', nivel: 4.0, pozos: 6, puntosPozos: 580, torneosJugados: 3, puntosTorneos: 340, racha: '3W' },
-  { id: '2', nombre: 'Angel', nivel: 3.9, pozos: 5, puntosPozos: 490, torneosJugados: 2, puntosTorneos: 280, racha: '1W' },
-  { id: '3', nombre: 'Lidia', nivel: 3.8, pozos: 5, puntosPozos: 460, torneosJugados: 4, puntosTorneos: 410, racha: '2W' },
-  { id: '4', nombre: 'Rober', nivel: 3.5, pozos: 4, puntosPozos: 350, torneosJugados: 2, puntosTorneos: 210, racha: '1L' },
-];
 
 const EVENTOS_INICIALES = [
   {
     id: 1,
-    titulo: 'Pozo Sube-Baja Top Level',
+    titulo: 'Pozo Sube-Baja Fin de Semana',
     tipo: 'Pozo',
     fecha: 'Sábado, 11 Oct • 10:00h',
     club: 'Club Pádel Center',
@@ -27,7 +20,7 @@ const EVENTOS_INICIALES = [
   },
   {
     id: 2,
-    titulo: 'Torneo Express Otoño',
+    titulo: 'Torneo Express Club',
     tipo: 'Torneo',
     fecha: '24-26 Oct • Cat. Abierta',
     club: 'Pádel Indoor Madrid',
@@ -37,19 +30,33 @@ const EVENTOS_INICIALES = [
   }
 ];
 
+const JUGADORES_INICIALES = [
+  { id: '1', nombre: 'Felix Gomez', telefono: '600123456', nivel: 4.0, pozos: 6, puntosPozos: 580, torneosJugados: 3, puntosTorneos: 340, racha: '3W' },
+  { id: '2', nombre: 'Angel Ruiz', telefono: '611223344', nivel: 3.9, pozos: 5, puntosPozos: 490, torneosJugados: 2, puntosTorneos: 280, racha: '1W' },
+  { id: '3', nombre: 'Lidia Martin', telefono: '622334455', nivel: 3.8, pozos: 5, puntosPozos: 460, torneosJugados: 4, puntosTorneos: 410, racha: '2W' },
+  { id: '4', nombre: 'Rober Sanchez', telefono: '633445566', nivel: 3.5, pozos: 4, puntosPozos: 350, torneosJugados: 2, puntosTorneos: 210, racha: '1L' },
+];
+
 export default function PadelApp() {
-  // Estado de Autenticación / Login inicial
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loginNombreInput, setLoginNombreInput] = useState('');
-  const [loginNivelInput, setLoginNivelInput] = useState('4.0');
+  // Estados de autenticación y flujo de acceso
+  const [authStep, setAuthStep] = useState<'login' | 'perfil_setup' | 'app'>('login');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  
+  // Datos del perfil de usuario
+  const [miPerfil, setMiPerfil] = useState({
+    nombreCompleto: '',
+    telefono: '',
+    nivelPlaytomic: '4.0',
+    club: 'Pádel Club Central'
+  });
 
   const [activeTab, setActiveTab] = useState<'eventos' | 'pistas' | 'rankings' | 'admin' | 'perfil'>('eventos');
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
 
   // Mapa de inscripciones: { [eventoId]: nombrePareja }
-  const [inscritosMap, setInscritosMap] = useState<{[key: number]: string}>({ 1: 'Lidia' });
+  const [inscritosMap, setInscritosMap] = useState<{[key: number]: string}>({ 1: 'Lidia Martin' });
   
-  // Estado temporal para cuando se está escribiendo el nombre de la pareja al inscribirse
   const [eventoRegistrandoId, setEventoRegistrandoId] = useState<number | null>(null);
   const [nombreParejaInput, setNombreParejaInput] = useState('');
 
@@ -57,28 +64,25 @@ export default function PadelApp() {
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
   const [faseTorneo, setFaseTorneo] = useState<'grupos' | 'principal' | 'consolacion'>('grupos');
 
-  // Seguridad de Organizador
+  // Seguridad Organizador
   const [pinAdmin, setPinAdmin] = useState('');
   const [esOrganizador, setEsOrganizador] = useState(false);
   const [errorPin, setErrorPin] = useState(false);
 
-  // Estado de Eventos
+  // Eventos
   const [eventos, setEventos] = useState(EVENTOS_INICIALES);
   const [nuevoTituloEvento, setNuevoTituloEvento] = useState('');
   const [nuevoTipoEvento, setNuevoTipoEvento] = useState('Pozo');
   const [nuevoClubEvento, setNuevoClubEvento] = useState('Club Pádel Center');
   const [nuevoPrecioEvento, setNuevoPrecioEvento] = useState('12');
 
-  // Perfil del Usuario Logueado
-  const [miPerfil, setMiPerfil] = useState({ nombre: 'Felix', nivel: 4.0, club: 'Pádel Club Central' });
-
   const [pistas, setPistas] = useState([
-    { numero: 1, nombre: 'Pista 1 • Central WPT', parej1: ['Felix', 'Lidia'], pareja2: ['Angel', 'Rober'] },
+    { numero: 1, nombre: 'Pista 1 • Central', parej1: ['Felix Gomez', 'Lidia Martin'], pareja2: ['Angel Ruiz', 'Rober Sanchez'] },
     { numero: 2, nombre: 'Pista 2', parej1: ['Jugador 5', 'Jugador 6'], pareja2: ['Jugador 7', 'Jugador 8'] },
   ]);
 
-  // Cierre de puntos admin
-  const [cierreJugador, setCierreJugador] = useState('Felix');
+  // Cierre admin
+  const [cierreJugador, setCierreJugador] = useState('Felix Gomez');
   const [cierreTipoEvento, setCierreTipoEvento] = useState<'Pozo' | 'Torneo'>('Pozo');
   const [cierrePista, setCierrePista] = useState('1');
   const [cierreCuadro, setCierreCuadro] = useState<'principal' | 'consolacion'>('principal');
@@ -89,24 +93,34 @@ export default function PadelApp() {
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoNivel, setNuevoNivel] = useState('3.5');
 
-  // Manejar Login / Identificación
-  const handleLogin = (e: React.FormEvent) => {
+  // Manejar Login de Usuario y Contraseña
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const nombreTrim = loginNombreInput.trim();
-    if (!nombreTrim) return;
+    if (!usernameInput.trim() || !passwordInput.trim()) return;
 
-    const nivelNum = parseFloat(loginNivelInput) || 4.0;
+    // Simulamos login correcto y pasamos a configurar/comprobar perfil
+    setAuthStep('perfil_setup');
+  };
 
-    // Actualizar perfil activo
-    setMiPerfil({ ...miPerfil, nombre: nombreTrim, nivel: nivelNum });
+  // Guardar configuración del perfil inicial
+  const handleGuardarPerfilSetup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!miPerfil.nombreCompleto.trim() || !miPerfil.telefono.trim()) {
+      setMensajeExito('Por favor, completa nombre y teléfono.');
+      setTimeout(() => setMensajeExito(''), 3000);
+      return;
+    }
 
-    // Comprobar si ya existe en el ranking del club, si no, añadirlo
+    const nivelNum = parseFloat(miPerfil.nivelPlaytomic) || 4.0;
+
+    // Añadir al ranking si no existe
     setRanking(prev => {
-      const existe = prev.some(j => j.nombre.toLowerCase() === nombreTrim.toLowerCase());
+      const existe = prev.some(j => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
       if (!existe) {
         return [...prev, {
           id: Date.now().toString(),
-          nombre: nombreTrim,
+          nombre: miPerfil.nombreCompleto,
+          telefono: miPerfil.telefono,
           nivel: nivelNum,
           pozos: 0,
           puntosPozos: 0,
@@ -118,15 +132,8 @@ export default function PadelApp() {
       return prev;
     });
 
-    setIsLoggedIn(true);
-    setMensajeExito(`¡Bienvenido/a de nuevo, ${nombreTrim}! 🎾`);
-    setTimeout(() => setMensajeExito(''), 3000);
-  };
-
-  const handleSeleccionarJugadorClub = (jugador: any) => {
-    setMiPerfil({ ...miPerfil, nombre: jugador.nombre, nivel: jugador.nivel });
-    setIsLoggedIn(true);
-    setMensajeExito(`¡Sesión iniciada como ${jugador.nombre}! 🎾`);
+    setAuthStep('app');
+    setMensajeExito(`¡Bienvenido/a, ${miPerfil.nombreCompleto}! 🎾`);
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
@@ -146,25 +153,6 @@ export default function PadelApp() {
     if (!parejaNombre) return;
 
     setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
-    
-    // Añadir automáticamente al jugador al ranking si no existe
-    setRanking(prev => {
-      const existe = prev.some(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
-      if (!existe) {
-        return [...prev, {
-          id: Date.now().toString(),
-          nombre: parejaNombre,
-          nivel: 3.5,
-          pozos: 0,
-          puntosPozos: 0,
-          torneosJugados: 0,
-          puntosTorneos: 0,
-          racha: '-'
-        }];
-      }
-      return prev;
-    });
-
     setEventoRegistrandoId(null);
     setNombreParejaInput('');
     setMensajeExito(`¡Inscripción confirmada con ${parejaNombre}!`);
@@ -226,7 +214,7 @@ export default function PadelApp() {
       })
     );
 
-    setMensajeExito(`¡+${pts} Pts (${cierreTipoEvento} - ${cierreCuadro}) asignados a ${cierreJugador}!`);
+    setMensajeExito(`¡+${pts} Pts asignados a ${cierreJugador}!`);
     setTimeout(() => setMensajeExito(''), 3500);
   };
 
@@ -256,40 +244,19 @@ export default function PadelApp() {
     handleCancelarInscripcion(id);
   };
 
-  const handleAgregarJugador = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nuevoNombre.trim()) return;
-
-    const nuevo = {
-      id: Date.now().toString(),
-      nombre: nuevoNombre.trim(),
-      nivel: parseFloat(nuevoNivel),
-      pozos: 0,
-      puntosPozos: 0,
-      torneosJugados: 0,
-      puntosTorneos: 0,
-      racha: '-',
-    };
-
-    setRanking((prev) => [...prev, nuevo]);
-    setNuevoNombre('');
-    setMensajeExito(`¡${nuevo.nombre} guardado en el club!`);
-    setTimeout(() => setMensajeExito(''), 3000);
-  };
-
   const eventoSeleccionado = eventos.find(ev => ev.id === eventoActivoId);
-  const parejaInscritaActual = eventoSeleccionado ? (inscritosMap[eventoSeleccionado.id] || 'Pareja') : 'Lidia';
+  const parejaInscritaActual = eventoSeleccionado ? (inscritosMap[eventoSeleccionado.id] || 'Pareja') : 'Lidia Martin';
 
   const handleMezclarPistas = () => {
-    const nombres = ranking.map((r) => r.nombre).filter(n => n !== miPerfil.nombre && n !== parejaInscritaActual);
+    const nombres = ranking.map((r) => r.nombre).filter(n => n !== miPerfil.nombreCompleto && n !== parejaInscritaActual);
     const mezclados = [...nombres].sort(() => Math.random() - 0.5);
 
     setPistas([
       {
         numero: 1,
-        nombre: 'Pista 1 • Central WPT',
-        parej1: [miPerfil.nombre, parejaInscritaActual],
-        pareja2: [mezclados[0] || 'Angel', mezclados[1] || 'Rober'],
+        nombre: 'Pista 1 • Central',
+        parej1: [miPerfil.nombreCompleto || 'Felix Gomez', parejaInscritaActual],
+        pareja2: [mezclados[0] || 'Angel Ruiz', mezclados[1] || 'Rober Sanchez'],
       },
       {
         numero: 2,
@@ -317,76 +284,49 @@ export default function PadelApp() {
     }
   });
 
-  // SI NO ESTÁ LOGUEADO, MOSTRAR PANTALLA DE LOGIN / IDENTIFICACIÓN
-  if (!isLoggedIn) {
+  // 1. PANTALLA DE LOGIN NORMAL (USUARIO Y CONTRASEÑA)
+  if (authStep === 'login') {
     return (
       <div className="min-h-screen bg-[#112948] text-slate-100 font-sans p-5 max-w-md mx-auto flex flex-col justify-center items-center border-x border-[#1A3D6C] shadow-2xl">
         <div className="w-full space-y-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-cyan-400 to-blue-500 text-slate-950 font-black text-3xl flex items-center justify-center mx-auto shadow-lg">
-              🎾
-            </div>
             <h1 className="text-2xl font-black tracking-wider text-white uppercase">
-              PÁDEL MATCH <span className="text-xs bg-cyan-400 text-slate-950 px-2 py-0.5 rounded font-extrabold">WPT</span>
+              Club de Pádel
             </h1>
-            <p className="text-xs text-cyan-200">Identifícate para entrar a tu área de jugador y torneos</p>
+            <p className="text-xs text-cyan-200">Introduce tus credenciales de acceso</p>
           </div>
 
-          {mensajeExito && (
-            <div className="bg-cyan-400 text-slate-950 p-3 rounded-2xl text-xs font-black text-center shadow-lg">
-              {mensajeExito}
-            </div>
-          )}
-
-          {/* Opción 1: Seleccionar jugador existente */}
-          <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-5 space-y-3 shadow-xl">
-            <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300 block">Selecciona tu perfil en el club:</span>
-            <div className="grid grid-cols-2 gap-2">
-              {ranking.map((j) => (
-                <button
-                  key={j.id}
-                  onClick={() => handleSeleccionarJugadorClub(j)}
-                  className="bg-[#112948] hover:bg-cyan-500 hover:text-slate-950 border border-cyan-900 p-3 rounded-2xl text-left font-bold text-xs transition-all flex items-center justify-between group"
-                >
-                  <span className="truncate text-white group-hover:text-slate-950">{j.nombre}</span>
-                  <span className="text-[10px] text-cyan-300 group-hover:text-slate-950">({j.nivel})</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Opción 2: Registrarse o entrar con nuevo nombre */}
-          <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-5 space-y-4 shadow-xl">
-            <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300 block">O introduce tu nombre de jugador:</span>
-            
-            <form onSubmit={handleLogin} className="space-y-3">
+          <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-6 space-y-4 shadow-xl">
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] text-cyan-200 font-bold uppercase mb-1">Tu Nombre y Apellido</label>
+                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Usuario o Correo</label>
                 <input
                   type="text"
-                  placeholder="Ej: Carlos Pádel"
-                  value={loginNombreInput}
-                  onChange={(e) => setLoginNombreInput(e.target.value)}
-                  className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                  placeholder="usuario@clubpadel.com"
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  required
+                  className="w-full bg-[#112948] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] text-cyan-200 font-bold uppercase mb-1">Nivel Estimado</label>
+                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Contraseña</label>
                 <input
-                  type="number"
-                  step="0.1"
-                  value={loginNivelInput}
-                  onChange={(e) => setLoginNivelInput(e.target.value)}
-                  className="w-full bg-[#112948] border border-cyan-900 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                  type="password"
+                  placeholder="••••••••"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  required
+                  className="w-full bg-[#112948] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
               >
-                <LogIn className="w-4 h-4" /> Entrar a la App
+                <LogIn className="w-4 h-4" /> Iniciar Sesión
               </button>
             </form>
           </div>
@@ -395,19 +335,87 @@ export default function PadelApp() {
     );
   }
 
+  // 2. PANTALLA DE CONFIGURACIÓN DE PERFIL INICIAL
+  if (authStep === 'perfil_setup') {
+    return (
+      <div className="min-h-screen bg-[#112948] text-slate-100 font-sans p-5 max-w-md mx-auto flex flex-col justify-center items-center border-x border-[#1A3D6C] shadow-2xl">
+        <div className="w-full space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="text-center space-y-2">
+            <h1 className="text-xl font-black tracking-wider text-white uppercase">
+              Completa tu Perfil de Jugador
+            </h1>
+            <p className="text-xs text-cyan-200">Necesitamos estos datos para las inscripciones y torneos</p>
+          </div>
+
+          {mensajeExito && (
+            <div className="bg-rose-500 text-white p-3 rounded-2xl text-xs font-black text-center shadow-lg">
+              {mensajeExito}
+            </div>
+          )}
+
+          <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-6 space-y-4 shadow-xl">
+            <form onSubmit={handleGuardarPerfilSetup} className="space-y-4">
+              <div>
+                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Nombre y Apellido</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Carlos Gómez"
+                  value={miPerfil.nombreCompleto}
+                  onChange={(e) => setMiPerfil({...miPerfil, nombreCompleto: e.target.value})}
+                  required
+                  className="w-full bg-[#112948] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Número de Teléfono</label>
+                <input
+                  type="tel"
+                  placeholder="Ej: 600123456"
+                  value={miPerfil.telefono}
+                  onChange={(e) => setMiPerfil({...miPerfil, telefono: e.target.value})}
+                  required
+                  className="w-full bg-[#112948] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-cyan-200 font-bold uppercase mb-1.5">Nivel en Playtomic</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="Ej: 3.8 o 4.0"
+                  value={miPerfil.nivelPlaytomic}
+                  onChange={(e) => setMiPerfil({...miPerfil, nivelPlaytomic: e.target.value})}
+                  required
+                  className="w-full bg-[#112948] border border-cyan-900 rounded-2xl p-3.5 text-xs text-white font-bold focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3.5 rounded-2xl text-xs uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-3"
+              >
+                Guardar y Entrar a la App
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. APLICACIÓN PRINCIPAL
   return (
     <div className="min-h-screen bg-[#112948] text-slate-100 font-sans pb-32 max-w-md mx-auto relative border-x border-[#1A3D6C] shadow-2xl">
-      {/* Marcador Superior Estilo WPT */}
+      {/* Marcador Superior */}
       <header className="sticky top-0 z-30 bg-[#0B1D35]/95 backdrop-blur-md p-4 border-b-2 border-cyan-400/30 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-blue-500 text-slate-950 font-black text-xl flex items-center justify-center shadow-md">
-            🎾
-          </div>
           <div>
-            <h1 className="text-base font-black tracking-wider text-white uppercase flex items-center gap-1.5">
-              PÁDEL MATCH <span className="text-[10px] bg-cyan-400 text-slate-950 px-1.5 py-0.5 rounded font-extrabold">WPT</span>
+            <h1 className="text-base font-black tracking-wider text-white uppercase">
+              CLUB DE PÁDEL
             </h1>
-            <p className="text-[10px] text-cyan-200/80 font-medium">Jugando como: <strong className="text-cyan-300">{miPerfil.nombre}</strong></p>
+            <p className="text-[10px] text-cyan-200/80 font-medium">Jugador: <strong className="text-cyan-300">{miPerfil.nombreCompleto}</strong></p>
           </div>
         </div>
 
@@ -415,7 +423,7 @@ export default function PadelApp() {
           onClick={() => setActiveTab('perfil')}
           className="bg-[#1A3D6C] border border-cyan-500/40 text-white text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1 active:scale-95 transition-all shadow-sm"
         >
-          <User className="w-3.5 h-3.5 text-cyan-300" /> {miPerfil.nombre}
+          <User className="w-3.5 h-3.5 text-cyan-300" /> {miPerfil.nombreCompleto.split(' ')[0]}
         </button>
       </header>
 
@@ -484,7 +492,6 @@ export default function PadelApp() {
                       </div>
                     </div>
 
-                    {/* Precio por jugador / pareja */}
                     <div className="bg-[#112948] px-3 py-2.5 rounded-xl border border-cyan-900 flex justify-between items-center">
                       <div>
                         <span className="text-[10px] text-cyan-300 font-bold uppercase block">Precio por Pareja</span>
@@ -493,7 +500,6 @@ export default function PadelApp() {
                       <span className="text-base font-black text-cyan-400">{evento.precioUnitario * 2}€</span>
                     </div>
 
-                    {/* ZONA DE INSCRIPCIÓN / FORMULARIO DE PAREJA */}
                     {!isInscrito && !estaRegistrando && (
                       <button
                         onClick={() => {
@@ -542,7 +548,7 @@ export default function PadelApp() {
                       <div className="space-y-2">
                         <div className="bg-cyan-950/50 border border-cyan-500/30 p-2.5 rounded-xl flex justify-between items-center text-xs">
                           <span className="text-cyan-200 font-bold flex items-center gap-1.5">
-                            <CheckCircle2 className="w-4 h-4 text-cyan-400" /> Pareja: {miPerfil.nombre} & {parejaInscrita}
+                            <CheckCircle2 className="w-4 h-4 text-cyan-400" /> Pareja: {miPerfil.nombreCompleto} & {parejaInscrita}
                           </span>
                           <button 
                             onClick={() => handleCancelarInscripcion(evento.id)}
@@ -570,14 +576,14 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA PISTAS / PARTIDOS */}
+        {/* PESTAÑA PISTAS */}
         {activeTab === 'pistas' && (
           <div className="space-y-4">
             {!eventoActivoId || !eventoSeleccionado ? (
               <div className="bg-[#18365C] border border-cyan-500/30 rounded-3xl p-6 text-center space-y-3 shadow-xl">
                 <Layers className="w-10 h-10 text-cyan-400 mx-auto" />
                 <h3 className="text-base font-bold text-white">Ningún torneo seleccionado</h3>
-                <p className="text-xs text-cyan-200">Entra a uno de tus eventos inscritos para ver sus pistas, grupos y cuadros.</p>
+                <p className="text-xs text-cyan-200">Entra a uno de tus eventos inscritos para ver sus pistas y cruces.</p>
                 <button 
                   onClick={() => setActiveTab('eventos')}
                   className="bg-cyan-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider mt-2"
@@ -613,7 +619,7 @@ export default function PadelApp() {
                     </div>
 
                     {pistas.map((p) => {
-                      const pareja1Actual = (p.numero === 1) ? [miPerfil.nombre, parejaInscritaActual] : p.parej1;
+                      const pareja1Actual = (p.numero === 1) ? [miPerfil.nombreCompleto, parejaInscritaActual] : p.parej1;
 
                       return (
                         <div key={p.numero} className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4 space-y-3 shadow-xl">
@@ -680,11 +686,11 @@ export default function PadelApp() {
                           </div>
                           <div className="space-y-2 text-xs">
                             <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">1. {miPerfil.nombre} & {parejaInscritaActual}</span>
+                              <span className="font-bold text-white">1. {miPerfil.nombreCompleto} & {parejaInscritaActual}</span>
                               <span className="text-cyan-300 font-mono font-bold">2 PJ • 6 pts</span>
                             </div>
                             <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">2. Angel & Rober</span>
+                              <span className="font-bold text-white">2. Angel Ruiz & Rober Sanchez</span>
                               <span className="text-cyan-300 font-mono font-bold">2 PJ • 4 pts</span>
                             </div>
                           </div>
@@ -703,7 +709,7 @@ export default function PadelApp() {
                           <div className="bg-[#112948] p-3 rounded-xl border border-cyan-900 space-y-1">
                             <span className="text-[9px] text-amber-300 font-bold uppercase block">Semifinal 1</span>
                             <div className="flex justify-between font-bold text-white">
-                              <span>{miPerfil.nombre} & {parejaInscritaActual} vs Pareja C</span>
+                              <span>{miPerfil.nombreCompleto} & {parejaInscritaActual} vs Pareja C</span>
                               <span className="text-cyan-400 font-mono">Sáb 12:00</span>
                             </div>
                           </div>
@@ -738,7 +744,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA RANKING */}
+        {/* PESTAÑA RANKINGS */}
         {activeTab === 'rankings' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -813,7 +819,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA ADMIN / ORGANIZADOR */}
+        {/* PESTAÑA ADMIN */}
         {activeTab === 'admin' && (
           <div className="space-y-5">
             {!esOrganizador ? (
@@ -1036,36 +1042,46 @@ export default function PadelApp() {
         {/* PESTAÑA PERFIL */}
         {activeTab === 'perfil' && (
           <div className="space-y-4">
-            <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-6 text-center space-y-4 shadow-xl">
-              <div className="w-20 h-20 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-3xl mx-auto flex items-center justify-center text-slate-950 font-black text-3xl shadow-lg">
-                {miPerfil.nombre.substring(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <h2 className="text-lg font-black text-white">{miPerfil.nombre}</h2>
-                <p className="text-xs text-cyan-200">Jugador Activo & Miembro del Club</p>
+            <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-6 space-y-4 shadow-xl">
+              <div className="text-center space-y-2">
+                <div className="w-20 h-20 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-3xl mx-auto flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg">
+                  {miPerfil.nombreCompleto ? miPerfil.nombreCompleto.substring(0, 2).toUpperCase() : 'JD'}
+                </div>
+                <h2 className="text-lg font-black text-white">{miPerfil.nombreCompleto}</h2>
+                <p className="text-xs text-cyan-200">Jugador Activo del Club</p>
               </div>
 
-              <div className="bg-[#112948] p-4 rounded-2xl border border-cyan-900 space-y-3 text-left">
-                <h3 className="text-xs font-black text-cyan-400 uppercase tracking-wider">Ajustes de Perfil</h3>
+              <div className="bg-[#112948] p-4 rounded-2xl border border-cyan-900 space-y-3">
+                <h3 className="text-xs font-black text-cyan-400 uppercase tracking-wider">Tus Datos de Perfil</h3>
                 
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <div>
-                    <label className="block text-[10px] text-cyan-300 font-bold uppercase">Tu Nombre</label>
+                    <label className="block text-[10px] text-cyan-300 font-bold uppercase">Nombre y Apellido</label>
                     <input 
                       type="text" 
-                      value={miPerfil.nombre}
-                      onChange={(e) => setMiPerfil({...miPerfil, nombre: e.target.value})}
+                      value={miPerfil.nombreCompleto}
+                      onChange={(e) => setMiPerfil({...miPerfil, nombreCompleto: e.target.value})}
                       className="w-full bg-[#18365C] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold mt-1"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-cyan-300 font-bold uppercase">Tu Nivel</label>
+                    <label className="block text-[10px] text-cyan-300 font-bold uppercase">Teléfono</label>
+                    <input 
+                      type="tel" 
+                      value={miPerfil.telefono}
+                      onChange={(e) => setMiPerfil({...miPerfil, telefono: e.target.value})}
+                      className="w-full bg-[#18365C] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-cyan-300 font-bold uppercase">Nivel en Playtomic</label>
                     <input 
                       type="number" 
                       step="0.1"
-                      value={miPerfil.nivel}
-                      onChange={(e) => setMiPerfil({...miPerfil, nivel: parseFloat(e.target.value) || 4.0})}
+                      value={miPerfil.nivelPlaytomic}
+                      onChange={(e) => setMiPerfil({...miPerfil, nivelPlaytomic: e.target.value})}
                       className="w-full bg-[#18365C] border border-cyan-800 rounded-xl p-2.5 text-xs text-white font-bold mt-1"
                     />
                   </div>
@@ -1084,10 +1100,13 @@ export default function PadelApp() {
                   </button>
 
                   <button 
-                    onClick={() => setIsLoggedIn(false)}
+                    onClick={() => {
+                      setAuthStep('login');
+                      setPasswordInput('');
+                    }}
                     className="w-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5"
                   >
-                    <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión / Cambiar Usuario
+                    <LogOut className="w-3.5 h-3.5" /> Cerrar Sesión
                   </button>
                 </div>
               </div>
@@ -1096,7 +1115,7 @@ export default function PadelApp() {
         )}
       </main>
 
-      {/* Navegación Inferior Fija de App */}
+      {/* Navegación Inferior */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0B1D35]/95 backdrop-blur-lg border-t-2 border-cyan-400/30 p-2 max-w-md mx-auto z-40">
         <div className="flex justify-around items-center">
           {[
