@@ -42,13 +42,8 @@ export default function PadelApp() {
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
   const [inscritos, setInscritos] = useState<number[]>([1]);
 
-  // Evento activo seleccionado para ver sus pistas/cuadros específicos
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
-
-  // Sub-pestaña para Ranking General (Pozos vs Torneos)
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
-
-  // Sub-fases dentro de un torneo de cuadro
   const [faseTorneo, setFaseTorneo] = useState<'grupos' | 'principal' | 'consolacion'>('grupos');
 
   // Seguridad de Organizador
@@ -323,29 +318,37 @@ export default function PadelApp() {
                       </div>
                     </div>
 
-                    {/* Botones de Acción */}
-                    <div className="pt-1 flex items-center gap-2">
+                    {/* Precio y Botones de Acción Estables (Grid fija para evitar saltos de pantalla) */}
+                    <div className="pt-1 grid grid-cols-2 gap-2 items-center">
+                      <div className="bg-[#112948] px-3 py-2.5 rounded-xl border border-cyan-900 text-center">
+                        <span className="text-xs text-cyan-300 block font-bold">Precio</span>
+                        <span className="text-sm font-black text-white">{evento.precio}€</span>
+                      </div>
+
                       <button
                         onClick={() => handleInscribirse(evento.id)}
-                        className={`py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-md ${
+                        className={`w-full py-3 px-2 rounded-2xl font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1 shadow-md ${
                           isInscrito
                             ? 'bg-[#1A3D6C] text-cyan-300 border-2 border-cyan-400'
                             : 'bg-cyan-400 text-slate-950 hover:bg-cyan-300'
                         }`}
                       >
-                        {isInscrito ? <><CheckCircle2 className="w-4 h-4" /> Apuntado</> : 'Inscribirme'}
+                        {isInscrito ? <><CheckCircle2 className="w-3.5 h-3.5" /> Apuntado</> : 'Inscribirme'}
                       </button>
 
-                      {isInscrito && (
+                      {/* Botón de Acceso a Pistas debajo o en paralelo según estado */}
+                      {isInscrito ? (
                         <button
                           onClick={() => {
                             setEventoActivoId(evento.id);
                             setActiveTab('pistas');
                           }}
-                          className="flex-1 bg-amber-400 hover:bg-amber-300 text-slate-950 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                          className="col-span-2 w-full bg-amber-400 hover:bg-amber-300 text-slate-950 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
                         >
-                          <Eye className="w-4 h-4" /> Entrar al Torneo / Pistas
+                          <Eye className="w-4 h-4" /> Entrar al Torneo / Ver Pistas
                         </button>
+                      ) : (
+                        <div className="col-span-2 h-11" /* Espaciador fijo invisible para mantener la misma altura exacta de tarjeta siempre */ />
                       )}
                     </div>
                   </div>
@@ -355,7 +358,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA PISTAS / PARTIDOS (ESTRICTAMENTE FILTRADO POR EL TORNEO SELECCIONADO) */}
+        {/* PESTAÑA PISTAS / PARTIDOS */}
         {activeTab === 'pistas' && (
           <div className="space-y-4">
             {!eventoActivoId || !eventoSeleccionado ? (
@@ -372,7 +375,6 @@ export default function PadelApp() {
               </div>
             ) : (
               <div className="space-y-4 animate-in fade-in duration-200">
-                {/* Cabecera del torneo activo con botón para volver */}
                 <div className="bg-[#18365C] border border-cyan-500/30 p-3 rounded-2xl flex justify-between items-center shadow-md">
                   <div>
                     <span className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider block">Estás consultando:</span>
@@ -386,7 +388,6 @@ export default function PadelApp() {
                   </button>
                 </div>
 
-                {/* SI ES UN POZO */}
                 {eventoSeleccionado.tipo === 'Pozo' && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
@@ -425,7 +426,6 @@ export default function PadelApp() {
                   </div>
                 )}
 
-                {/* SI ES UN TORNEO (GRUPOS + CUADROS) */}
                 {eventoSeleccionado.tipo === 'Torneo' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-1 bg-[#112948] p-1 rounded-xl border border-cyan-900">
@@ -522,7 +522,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA RANKING (GENERAL DEL CLUB) */}
+        {/* PESTAÑA RANKING */}
         {activeTab === 'rankings' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -597,7 +597,7 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA ADMIN / ORGANIZADOR (PROTEGIDO POR PIN) */}
+        {/* PESTAÑA ADMIN / ORGANIZADOR */}
         {activeTab === 'admin' && (
           <div className="space-y-5">
             {!esOrganizador ? (
@@ -649,7 +649,6 @@ export default function PadelApp() {
                   </div>
                 )}
 
-                {/* Crear Evento */}
                 <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 p-4 rounded-3xl space-y-4 shadow-xl">
                   <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
                     <Shield className="w-4 h-4 text-cyan-400" /> Crear Nuevo Evento
@@ -707,7 +706,6 @@ export default function PadelApp() {
                   </div>
                 </div>
 
-                {/* CIERRE DE PUNTOS */}
                 <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 p-4 rounded-3xl space-y-3.5 shadow-xl">
                   <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
                     <Award className="w-4 h-4 text-cyan-400" /> Cierre de Puntos & Clasificación
@@ -821,7 +819,6 @@ export default function PadelApp() {
                   </form>
                 </div>
 
-                {/* Registrar Jugador */}
                 <div className="bg-[#18365C]/90 border border-cyan-900 p-4 rounded-3xl space-y-2.5">
                   <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Plus className="w-3.5 h-3.5 text-cyan-400" /> Registrar Jugador
