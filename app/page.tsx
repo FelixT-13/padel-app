@@ -31,10 +31,10 @@ const EVENTOS_INICIALES = [
 ];
 
 const JUGADORES_INICIALES = [
-  { id: '1', nombre: 'Felix Gomez', telefono: '600123456', nivel: 4.0, pozos: 6, puntosPozos: 580, torneosJugados: 3, puntosTorneos: 340, racha: '3W' },
-  { id: '2', nombre: 'Angel Ruiz', telefono: '611223344', nivel: 3.9, pozos: 5, puntosPozos: 490, torneosJugados: 2, puntosTorneos: 280, racha: '1W' },
-  { id: '3', nombre: 'Lidia Martin', telefono: '622334455', nivel: 3.8, pozos: 5, puntosPozos: 460, torneosJugados: 4, puntosTorneos: 410, racha: '2W' },
-  { id: '4', nombre: 'Rober Sanchez', telefono: '633445566', nivel: 3.5, pozos: 4, puntosPozos: 350, torneosJugados: 2, puntosTorneos: 210, racha: '1L' },
+  { id: '1', nombre: 'Felix Gomez', telefono: '600123456', nivel: 4.0, pozos: 6, puntosPozos: 580, torneosJugados: 3, puntosTorneos: 340, racha: '3W', lado: 'derecha', fantasyPuntos: 920 },
+  { id: '2', nombre: 'Angel Ruiz', telefono: '611223344', nivel: 3.9, pozos: 5, puntosPozos: 490, torneosJugados: 2, puntosTorneos: 280, racha: '1W', lado: 'reves', fantasyPuntos: 770 },
+  { id: '3', nombre: 'Lidia Martin', telefono: '622334455', nivel: 3.8, pozos: 5, puntosPozos: 460, torneosJugados: 4, puntosTorneos: 410, racha: '2W', lado: 'derecha', fantasyPuntos: 870 },
+  { id: '4', nombre: 'Rober Sanchez', telefono: '633445566', nivel: 3.5, pozos: 4, puntosPozos: 350, torneosJugados: 2, puntosTorneos: 210, racha: '1L', lado: 'reves', fantasyPuntos: 560 },
 ];
 
 export default function PadelApp() {
@@ -48,20 +48,23 @@ export default function PadelApp() {
     nombreCompleto: '',
     telefono: '',
     nivelPlaytomic: '4.0',
-    club: 'Pádel Club Central'
+    club: 'Pádel Club Central',
+    lado: 'derecha' as 'derecha' | 'reves'
   });
 
   const [activeTab, setActiveTab] = useState<'inicio' | 'eventos' | 'pistas' | 'rankings' | 'fantasy' | 'admin' | 'perfil'>('inicio');
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
 
   // Fantasy de Pádel: minijuego local para el prototipo.
-  const [fantasyEquipo, setFantasyEquipo] = useState<string[]>(['1', '2', '3', '4']);
+  const [fantasyEquipo, setFantasyEquipo] = useState<string[]>([]);
   const [fantasyPresupuesto, setFantasyPresupuesto] = useState(100);
+  const [fantasyJornada, setFantasyJornada] = useState<'actual' | 'historico'>('actual');
   const [jugadorSeleccionadoPista, setJugadorSeleccionadoPista] = useState(0);
 
 
   // Mapa de inscripciones: { [eventoId]: nombrePareja }
   const [inscritosMap, setInscritosMap] = useState<{[key: number]: string}>({ 1: 'Lidia Martin' });
+  const [participantesEventoMap, setParticipantesEventoMap] = useState<{[key: number]: string[]}>({ 1: ['1','2','3','4'], 2: ['1','2','3','4'] });
   
   const [eventoRegistrandoId, setEventoRegistrandoId] = useState<number | null>(null);
   const [nombreParejaInput, setNombreParejaInput] = useState('');
@@ -132,7 +135,9 @@ export default function PadelApp() {
           puntosPozos: 0,
           torneosJugados: 0,
           puntosTorneos: 0,
-          racha: '-'
+          racha: '-',
+          lado: miPerfil.lado,
+          fantasyPuntos: 0
         }];
       }
       return prev;
@@ -159,6 +164,12 @@ export default function PadelApp() {
     if (!parejaNombre) return;
 
     setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
+    const parejaJugador = ranking.find((j) => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
+    const miJugador = ranking.find((j) => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
+    setParticipantesEventoMap(prev => ({
+      ...prev,
+      [eventoId]: Array.from(new Set([...(prev[eventoId] || []), miJugador?.id, parejaJugador?.id].filter(Boolean) as string[]))
+    }));
     setEventoRegistrandoId(null);
     setNombreParejaInput('');
     setMensajeExito(`¡Inscripción confirmada con ${parejaNombre}!`);
@@ -169,6 +180,11 @@ export default function PadelApp() {
     const copia = { ...inscritosMap };
     delete copia[eventoId];
     setInscritosMap(copia);
+    setParticipantesEventoMap(prev => {
+      const next = { ...prev };
+      delete next[eventoId];
+      return next;
+    });
     if (eventoActivoId === eventoId) setEventoActivoId(null);
   };
 
@@ -211,9 +227,9 @@ export default function PadelApp() {
       prev.map((j) => {
         if (j.nombre === cierreJugador) {
           if (cierreTipoEvento === 'Pozo') {
-            return { ...j, puntosPozos: j.puntosPozos + pts, pozos: j.pozos + 1 };
+            return { ...j, puntosPozos: j.puntosPozos + pts, pozos: j.pozos + 1, fantasyPuntos: (j.fantasyPuntos ?? 0) + pts };
           } else {
-            return { ...j, puntosTorneos: j.puntosTorneos + pts, torneosJugados: j.torneosJugados + 1 };
+            return { ...j, puntosTorneos: j.puntosTorneos + pts, torneosJugados: j.torneosJugados + 1, fantasyPuntos: (j.fantasyPuntos ?? 0) + pts };
           }
         }
         return j;
@@ -253,23 +269,43 @@ export default function PadelApp() {
   const eventoSeleccionado = eventos.find(ev => ev.id === eventoActivoId);
   const parejaInscritaActual = eventoSeleccionado ? (inscritosMap[eventoSeleccionado.id] || 'Pareja') : 'Lidia Martin';
 
+  const ladoDeJugador = (nombre: string) => {
+    const jugador = ranking.find((j) => j.nombre === nombre);
+    return jugador?.lado || (nombre === miPerfil.nombreCompleto ? miPerfil.lado : 'derecha');
+  };
+
+  const ordenarParejaPorLado = (pareja: string[]) => {
+    const copia = [...pareja];
+    return copia.sort((a, b) => {
+      const la = ladoDeJugador(a);
+      const lb = ladoDeJugador(b);
+      return la === 'derecha' ? -1 : lb === 'derecha' ? 1 : 0;
+    });
+  };
+
+  const clasePosicionPista = (indice: number) => {
+    const posiciones = [
+      'left-[17%] top-[28%]',
+      'left-[17%] bottom-[28%]',
+      'right-[17%] top-[28%]',
+      'right-[17%] bottom-[28%]'
+    ];
+    return posiciones[indice] || posiciones[0];
+  };
+
+  const etiquetaLado = (lado: string) => lado === 'derecha' ? 'DERECHA' : 'REVÉS';
+
   const handleMezclarPistas = () => {
     const nombres = ranking.map((r) => r.nombre).filter(n => n !== miPerfil.nombreCompleto && n !== parejaInscritaActual);
-    const mezclados = [...nombres].sort(() => Math.random() - 0.5);
+    const mezclados = [...nombres];
+    for (let i = mezclados.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [mezclados[i], mezclados[j]] = [mezclados[j], mezclados[i]];
+    }
 
     setPistas([
-      {
-        numero: 1,
-        nombre: 'Pista 1 • Central',
-        parej1: [miPerfil.nombreCompleto || 'Felix Gomez', parejaInscritaActual],
-        pareja2: [mezclados[0] || 'Angel Ruiz', mezclados[1] || 'Rober Sanchez'],
-      },
-      {
-        numero: 2,
-        nombre: 'Pista 2',
-        parej1: [mezclados[2] || 'Jugador A', mezclados[3] || 'Jugador B'],
-        pareja2: [mezclados[4] || 'Jugador C', mezclados[5] || 'Jugador D'],
-      },
+      { numero: 1, nombre: 'Pista 1 • Central', parej1: ordenarParejaPorLado([miPerfil.nombreCompleto || 'Felix Gomez', parejaInscritaActual]), pareja2: ordenarParejaPorLado([mezclados[0] || 'Angel Ruiz', mezclados[1] || 'Rober Sanchez']) },
+      { numero: 2, nombre: 'Pista 2', parej1: ordenarParejaPorLado([mezclados[2] || 'Jugador A', mezclados[3] || 'Jugador B']), pareja2: ordenarParejaPorLado([mezclados[4] || 'Jugador C', mezclados[5] || 'Jugador D']) },
     ]);
   };
 
@@ -282,14 +318,24 @@ export default function PadelApp() {
     }
   };
 
-  const fantasyJugadores = ranking.map((j, i) => ({
-    ...j,
-    valor: Number((18 + j.nivel * 5 + i * 1.5).toFixed(1)),
-    fantasyPts: Math.round(j.puntosPozos * 0.08 + j.puntosTorneos * 0.1 + (j.racha.endsWith('W') ? 12 : 0)),
-  }));
+  // Fantasy: solo entran jugadores que hayan sido inscritos en al menos un evento.
+  // Sus puntos Fantasy salen de los puntos que realmente consiguen en eventos.
+  const idsParticipantes = new Set(Object.values(participantesEventoMap).flat());
+  const fantasyJugadores = ranking
+    .filter((j) => idsParticipantes.has(j.id))
+    .map((j) => ({
+      ...j,
+      valor: Number((12 + j.nivel * 4 + (j.fantasyPuntos ?? 0) / 250).toFixed(1)),
+      fantasyPts: j.fantasyPuntos ?? (j.puntosTorneos + j.puntosPozos),
+    }));
   const fantasySeleccionados = fantasyJugadores.filter(j => fantasyEquipo.includes(j.id));
   const fantasyGastado = fantasySeleccionados.reduce((sum, j) => sum + j.valor, 0);
   const fantasyPts = fantasySeleccionados.reduce((sum, j) => sum + j.fantasyPts, 0);
+  const partidosVisibles = pistas.filter((p) => {
+    const nombres = [...p.parej1, ...p.pareja2];
+    if (esOrganizador) return true;
+    return Boolean(miPerfil.nombreCompleto) && nombres.includes(miPerfil.nombreCompleto);
+  });
 
   const rankingOrdenado = [...ranking].sort((a, b) => {
     if (tipoRanking === 'pozos') {
@@ -395,16 +441,11 @@ export default function PadelApp() {
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-500 font-bold uppercase mb-1.5">Nivel en Playtomic</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  placeholder="Ej: 3.8 o 4.0"
-                  value={miPerfil.nivelPlaytomic}
-                  onChange={(e) => setMiPerfil({...miPerfil, nivelPlaytomic: e.target.value})}
-                  required
-                  className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
-                />
+                <label className="block text-[11px] text-slate-500 font-bold uppercase mb-1.5">Lado habitual</label>
+                <select value={miPerfil.lado} onChange={(e) => setMiPerfil({...miPerfil, lado: e.target.value as 'derecha' | 'reves'})} className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-emerald-500">
+                  <option value="derecha">Derecha</option>
+                  <option value="reves">Revés</option>
+                </select>
               </div>
 
               <button
@@ -461,7 +502,7 @@ export default function PadelApp() {
             <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-400 p-5 text-white shadow-xl">
               <div className="relative z-10 max-w-[75%]">
                 <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Padel Arena</div>
-                <h2 className="mt-1 text-3xl font-black leading-none">Juega. Compite. Repite. 🎾</h2>
+                <h2 className="mt-1 text-3xl font-black leading-none">Juega. Compite. Repite. 🟢</h2>
                 <p className="mt-2 text-xs font-semibold text-white/85">Tus eventos, tus partidos, tu ranking y tu Fantasy en un solo sitio.</p>
                 <button onClick={() => setActiveTab('eventos')} className="mt-4 rounded-xl bg-white px-4 py-2.5 text-xs font-black text-emerald-700 shadow-lg active:scale-95">Ver próximos eventos →</button>
               </div>
@@ -479,178 +520,46 @@ export default function PadelApp() {
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between"><div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Tu actividad</span><h3 className="text-lg font-black">Esta semana 🔥</h3></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-700">{fantasyPts} Fantasy pts</span></div>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="rounded-2xl bg-slate-50 p-3"><b className="block text-xl">2</b><span className="text-[9px] font-bold text-slate-500 uppercase">Partidos</span></div><div className="rounded-2xl bg-slate-50 p-3"><b className="block text-xl">+45</b><span className="text-[9px] font-bold text-slate-500 uppercase">Ranking</span></div><div className="rounded-2xl bg-slate-50 p-3"><b className="block text-xl">#18</b><span className="text-[9px] font-bold text-slate-500 uppercase">Fantasy</span></div></div>
-            </section>
-          </div>
-        )}
-
-        {/* PESTAÑA EVENTOS */}
-        {activeTab === 'eventos' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xs font-black tracking-widest text-slate-500 uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-emerald-600" /> Próximos Partidos & Torneos
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              {eventos.map((evento) => {
-                const parejaInscrita = inscritosMap[evento.id];
-                const isInscrito = !!parejaInscrita;
-                const isPozo = evento.tipo === 'Pozo';
-                const pct = Math.round((evento.plazas_ocupadas / evento.plazas_totales) * 100);
-                const estaRegistrando = eventoRegistrandoId === evento.id;
-
-                return (
-                  <div key={evento.id} className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4.5 space-y-3.5 relative overflow-hidden shadow-xl">
-                    <div className="flex justify-between items-start">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
-                        isPozo 
-                          ? 'bg-emerald-500 text-white border-cyan-300 font-extrabold' 
-                          : 'bg-amber-400 text-white border-amber-300 font-extrabold'
-                      }`}>
-                        {evento.tipo}
-                      </span>
-
-                      <button onClick={() => compartirEvento(evento)} className="text-slate-500 hover:text-slate-900 bg-[#f4f7f5] p-2 rounded-full border border-cyan-500/40">
-                        <Share2 className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-black text-slate-900 leading-tight">{evento.titulo}</h3>
-                      
-                      {/* DIRECCIÓN CON ENLACE A GOOGLE MAPS */}
-                      <p className="text-xs text-cyan-100 mt-1.5 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> 
-                        <a 
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evento.club)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline hover:text-emerald-700 transition-colors font-medium"
-                        >
-                          {evento.club} 📍
-                        </a>
-                      </p>
-
-                      <p className="text-xs text-cyan-100 mt-1 flex items-center gap-1.5">
-                        <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" /> {evento.fecha}
-                      </p>
-                    </div>
-
-                    {/* Medidor Ocupación */}
-                    <div className="bg-[#f4f7f5] p-3 rounded-2xl border border-slate-200 space-y-1.5">
-                      <div className="flex justify-between text-xs font-bold">
-                        <span className="text-slate-500">Parejas Confirmadas</span>
-                        <span className="text-slate-900 font-mono">{evento.plazas_ocupadas} / {evento.plazas_totales}</span>
-                      </div>
-                      <div className="w-full bg-white h-2.5 rounded-full overflow-hidden p-0.5 border border-cyan-950">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-300 ${isPozo ? 'bg-emerald-500' : 'bg-amber-400'}`} 
-                          style={{ width: `${pct}%` }} 
-                        />
-                      </div>
-                    </div>
-
-                    <div className="bg-[#f4f7f5] px-3 py-2.5 rounded-xl border border-slate-200 flex justify-between items-center">
-                      <div>
-                        <span className="text-[10px] text-emerald-700 font-bold uppercase block">Precio por Pareja</span>
-                        <span className="text-xs text-slate-900">({evento.precioUnitario}€ x jugador)</span>
-                      </div>
-                      <span className="text-base font-black text-emerald-600">{evento.precioUnitario * 2}€</span>
-                    </div>
-
-                    {!isInscrito && !estaRegistrando && (
-                      <button
-                        onClick={() => {
-                          setEventoRegistrandoId(evento.id);
-                          setNombreParejaInput('');
-                        }}
-                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
-                      >
-                        Inscribir Pareja
-                      </button>
-                    )}
-
-                    {estaRegistrando && (
-                      <div className="bg-[#f4f7f5] p-3.5 rounded-2xl border border-cyan-500/50 space-y-3 animate-in fade-in duration-200">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-black text-emerald-700 uppercase">Indica tu Pareja</span>
-                          <button onClick={() => setEventoRegistrandoId(null)} className="text-emerald-600 hover:text-slate-900">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Nombre y Apellido de tu pareja"
-                          value={nombreParejaInput}
-                          onChange={(e) => setNombreParejaInput(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-cyan-400"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleConfirmarInscripcion(evento.id)}
-                            className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md"
-                          >
-                            Confirmar ({evento.precioUnitario * 2}€)
-                          </button>
-                          <button
-                            onClick={() => setEventoRegistrandoId(null)}
-                            className="px-3 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl font-bold text-xs"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {isInscrito && (
-                      <div className="space-y-2">
-                        <div className="bg-cyan-950/50 border border-emerald-200 p-2.5 rounded-xl flex justify-between items-center text-xs">
-                          <span className="text-slate-500 font-bold flex items-center gap-1.5">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Pareja: {miPerfil.nombreCompleto} & {parejaInscrita}
-                          </span>
-                          <button 
-                            onClick={() => handleCancelarInscripcion(evento.id)}
-                            className="text-[10px] text-rose-300 underline font-medium hover:text-rose-200"
-                          >
-                            Anular
-                          </button>
-                        </div>
-
-                        <button
-                          onClick={() => {
-                            setEventoActivoId(evento.id);
-                            setActiveTab('pistas');
-                          }}
-                          className="w-full bg-amber-400 hover:bg-amber-300 text-white py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
-                        >
-                          <Eye className="w-4 h-4" /> Entrar al Torneo / Ver Pistas
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* PESTAÑA PISTAS */}
-        {activeTab === 'pistas' && (
-          <div className="space-y-4">
-            <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3"><div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Pista interactiva</span><h2 className="text-lg font-black">Pista central 🎾</h2></div><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700">TOCA UN JUGADOR</span></div>
-              <div className="relative mx-auto aspect-[1.7/1] max-w-[520px] overflow-hidden rounded-[22px] border-[8px] border-white bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-lg ring-1 ring-emerald-200">
-                <div className="absolute inset-[8%] rounded-xl border-2 border-white/90" />
-                <div className="absolute left-1/2 top-[8%] bottom-[8%] border-l-2 border-white/90" />
-                <div className="absolute left-[8%] right-[8%] top-1/2 border-t-2 border-white/90" />
-                <div className="absolute left-[8%] right-[8%] top-[31%] border-t border-white/70" />
-                <div className="absolute left-[8%] right-[8%] bottom-[31%] border-t border-white/70" />
-                {[miPerfil.nombreCompleto || 'Félix', parejaInscritaActual || 'Pareja', 'Ángel Ruiz', 'Rober Sánchez'].map((name,i) => <button key={i} onClick={() => setJugadorSeleccionadoPista(i)} className={`absolute ${['left-[14%] top-[20%]','left-[14%] bottom-[20%]','right-[14%] top-[20%]','right-[14%] bottom-[20%]'][i]} -translate-y-1/2 rounded-full border-2 px-2.5 py-1 text-[9px] font-black shadow-lg transition-all ${jugadorSeleccionadoPista===i ? 'scale-110 border-lime-300 bg-white text-emerald-700' : 'border-white/80 bg-slate-900/75 text-white'}`}>{name}</button>)}
+              <div className="flex items-center justify-between mb-3">
+                <div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Mis partidos</span><h2 className="text-lg font-black">Mi pista de pádel</h2></div>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700">SOLO TUS PARTIDOS</span>
               </div>
-              <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-center"><span className="text-[9px] font-bold uppercase text-slate-400">Jugador seleccionado</span><b className="mt-0.5 block text-sm">{[miPerfil.nombreCompleto || 'Félix', parejaInscritaActual || 'Pareja', 'Ángel Ruiz', 'Rober Sánchez'][jugadorSeleccionadoPista]}</b><p className="text-[10px] text-slate-500">Aquí podremos añadir estadísticas, posición y acciones del partido.</p></div>
+              {partidosVisibles.length === 0 ? (
+                <div className="rounded-2xl bg-slate-50 p-5 text-center">
+                  <div className="text-3xl">🗓️</div>
+                  <b className="mt-2 block text-sm text-slate-900">Todavía no tienes un partido asignado</b>
+                  <p className="mt-1 text-[10px] text-slate-500">Cuando el organizador genere el sorteo, aquí aparecerá únicamente tu pista, tu pareja, tus rivales y tu posición.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {partidosVisibles.map((p, matchIndex) => {
+                    const jugadores = [p.parej1[0], p.parej1[1], p.pareja2[0], p.pareja2[1]];
+                    return (
+                      <div key={p.numero} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-slate-500">{p.nombre}</span>
+                          <span className="text-[9px] font-bold text-emerald-700">Partido {matchIndex + 1}</span>
+                        </div>
+                        <div className="relative mx-auto aspect-[1.7/1] max-w-[520px] overflow-hidden rounded-[22px] border-[8px] border-slate-300 bg-emerald-600 shadow-lg ring-1 ring-emerald-200">
+                          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px)] bg-[size:12px_12px]" />
+                          <div className="absolute inset-[7%] rounded-lg border-2 border-white/95" />
+                          <div className="absolute left-1/2 top-[7%] bottom-[7%] border-l-2 border-white/95" />
+                          <div className="absolute left-[7%] right-[7%] top-1/2 border-t-2 border-white/95" />
+                          <div className="absolute left-[7%] right-[7%] top-[31%] border-t border-white/85" />
+                          <div className="absolute left-[7%] right-[7%] bottom-[31%] border-t border-white/85" />
+                          <div className="absolute inset-y-[5%] left-0 w-2 bg-slate-200/60 border-r border-slate-400/70" />
+                          <div className="absolute inset-y-[5%] right-0 w-2 bg-slate-200/60 border-l border-slate-400/70" />
+                          <div className="absolute left-0 right-0 top-0 h-2 bg-slate-200/70 border-b border-slate-400/70" />
+                          <div className="absolute left-0 right-0 bottom-0 h-2 bg-slate-200/70 border-t border-slate-400/70" />
+                          <span className="absolute left-2 top-1 text-[7px] font-black tracking-widest text-white/80">CRISTAL + MALLA</span>
+                          {jugadores.map((name,i) => <button key={name+i} type="button" onClick={() => setJugadorSeleccionadoPista(i)} className={`absolute ${clasePosicionPista(i)} -translate-y-1/2 rounded-xl border-2 px-2.5 py-1.5 text-[8px] font-black shadow-lg transition-all ${jugadorSeleccionadoPista===i ? 'scale-110 border-lime-300 bg-white text-emerald-700' : 'border-white/90 bg-white/95 text-slate-900'}`}><span className="block truncate max-w-[88px]">{name}</span><span className="block text-[7px] text-emerald-700">{etiquetaLado(ladoDeJugador(name))}</span></button>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {partidosVisibles.length > 0 && <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-center"><span className="text-[9px] font-bold uppercase text-slate-400">Jugador seleccionado</span><b className="mt-0.5 block text-sm">{[...(partidosVisibles[0]?.parej1 || []), ...(partidosVisibles[0]?.pareja2 || [])][jugadorSeleccionadoPista] || miPerfil.nombreCompleto}</b><p className="text-[10px] text-slate-500">Lado: <strong>{ladoDeJugador([...(partidosVisibles[0]?.parej1 || []), ...(partidosVisibles[0]?.pareja2 || [])][jugadorSeleccionadoPista] || miPerfil.nombreCompleto)}</strong></p></div>}
             </section>
 
             {!eventoActivoId || !eventoSeleccionado ? (
@@ -691,7 +600,7 @@ export default function PadelApp() {
                 {eventoSeleccionado.tipo === 'Pozo' && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-black tracking-widest text-slate-500 uppercase">Pistas de Salida • Pozo</h3>
+                      <h3 className="text-xs font-black tracking-widest text-slate-500 uppercase">Mis partidos • Pozo</h3>
                       <button
                         onClick={handleMezclarPistas}
                         className="bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-95 transition-all shadow-md"
@@ -700,7 +609,7 @@ export default function PadelApp() {
                       </button>
                     </div>
 
-                    {pistas.map((p) => {
+                    {partidosVisibles.map((p) => {
                       const pareja1Actual = (p.numero === 1) ? [miPerfil.nombreCompleto, parejaInscritaActual] : p.parej1;
 
                       return (
@@ -715,13 +624,13 @@ export default function PadelApp() {
                             <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 border-r-2 border-dashed border-white/80 z-10" />
                             <div className="w-1/2 text-center relative z-20 space-y-1 pr-2">
                               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">PAREJA A</span>
-                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[0]}</p>
-                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[1]}</p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[0]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(pareja1Actual[0])})</span></p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{pareja1Actual[1]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(pareja1Actual[1])})</span></p>
                             </div>
                             <div className="w-1/2 text-center relative z-20 space-y-1 pl-2">
                               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">PAREJA B</span>
-                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja2[0]}</p>
-                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja2[1]}</p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja2[0]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(p.pareja2[0])})</span></p>
+                              <p className="text-xs font-black text-slate-900 drop-shadow-md truncate">{p.pareja2[1]} <span className="text-[8px] font-bold opacity-70">({ladoDeJugador(p.pareja2[1])})</span></p>
                             </div>
                           </div>
                         </div>
@@ -826,6 +735,42 @@ export default function PadelApp() {
           </div>
         )}
 
+        {/* PESTAÑA EVENTOS */}
+        {activeTab === 'eventos' && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Calendario</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Próximos eventos</h2>
+              <p className="mt-1 text-xs text-slate-600">Pozos y torneos organizados por la comunidad.</p>
+            </div>
+            {eventos.map((evento) => {
+              const inscrito = participantesEventoMap[evento.id]?.includes(ranking.find(j => j.nombre === miPerfil.nombreCompleto)?.id || '');
+              return (
+                <article key={evento.id} className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
+                  <div className={`h-2 ${evento.tipo === 'Pozo' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className={`inline-flex rounded-full px-2 py-1 text-[9px] font-black uppercase ${evento.tipo === 'Pozo' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{evento.tipo}</span>
+                        <h3 className="mt-2 text-base font-black text-slate-900">{evento.titulo}</h3>
+                      </div>
+                      <span className="rounded-xl bg-slate-100 px-2 py-1 text-xs font-black text-slate-800">€{evento.precioUnitario}</span>
+                    </div>
+                    <div className="mt-4 grid gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-slate-800"><Calendar className="h-4 w-4 shrink-0 text-emerald-600" /><strong>{evento.fecha}</strong></div>
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evento.club)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 font-semibold text-slate-800 underline decoration-emerald-400 underline-offset-2"><MapPin className="h-4 w-4 shrink-0 text-emerald-600" /><span>{evento.club}</span></a>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} plazas ocupadas</span>
+                      <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white">{inscrito ? 'Ver mis partidos' : 'Ver evento'}</button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
         {/* PESTAÑA RANKINGS */}
         {activeTab === 'rankings' && (
           <div className="space-y-4">
@@ -905,7 +850,7 @@ export default function PadelApp() {
         {activeTab === 'fantasy' && (
           <div className="space-y-5 animate-in fade-in duration-300">
             <div className="rounded-3xl bg-gradient-to-r from-slate-900 to-emerald-900 p-5 text-white shadow-xl">
-              <div className="flex items-center justify-between"><div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-300">Fantasy 🎾</span><h2 className="mt-1 text-2xl font-black">Tu equipo de ensueño</h2></div><div className="text-right"><span className="block text-2xl font-black">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-white/60">puntos</span></div></div>
+              <div className="flex items-center justify-between"><div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-300">Fantasy Padel</span><h2 className="mt-1 text-2xl font-black">Tu equipo de ensueño</h2></div><div className="text-right"><span className="block text-2xl font-black">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-white/60">puntos por resultados</span></div></div>
               <div className="mt-4 flex justify-between text-xs font-bold"><span>Presupuesto</span><span>{fantasyGastado.toFixed(1)} / {fantasyPresupuesto}M</span></div>
               <div className="mt-2 h-2 rounded-full bg-white/15 overflow-hidden"><div className="h-full rounded-full bg-lime-300" style={{width: `${Math.min(100, fantasyGastado / fantasyPresupuesto * 100)}%`}} /></div>
             </div>
@@ -916,8 +861,8 @@ export default function PadelApp() {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="font-black">Mercado de jugadores</h3><p className="mt-1 text-[10px] text-slate-500">Pulsa un jugador para ficharlo o quitarlo.</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">{fantasyJugadores.map(j => { const elegido=fantasyEquipo.includes(j.id); const puede=fantasyGastado-j.valor < fantasyPresupuesto; return <button key={j.id} onClick={() => setFantasyEquipo(prev => elegido ? prev.filter(id => id!==j.id) : (prev.length<4 && puede ? [...prev,j.id] : prev))} className={`rounded-2xl border p-3 text-left transition ${elegido ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:bg-white'}`}><div className="flex justify-between gap-2"><b className="text-xs truncate">{j.nombre}</b><span>{elegido ? '✓' : '+'}</span></div><div className="mt-2 flex justify-between text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span className="font-black">{j.valor}M</span></div></button>})}</div>
+              <h3 className="font-black">Jugadores disponibles</h3><p className="mt-1 text-[10px] text-slate-500">Solo aparecen jugadores que ya han participado en eventos. Cada resultado que registra el organizador suma automáticamente a su Fantasy.</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">{fantasyJugadores.map(j => { const elegido=fantasyEquipo.includes(j.id); const puede=fantasyGastado-j.valor < fantasyPresupuesto; return <button key={j.id} onClick={() => setFantasyEquipo(prev => elegido ? prev.filter(id => id!==j.id) : (prev.length<4 && puede ? [...prev,j.id] : prev))} className={`rounded-2xl border p-3 text-left transition ${elegido ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:bg-white'}`}><div className="flex justify-between gap-2"><div><b className="text-xs truncate">{j.nombre}</b><span className="ml-2 text-[9px] font-bold text-slate-400 uppercase">{j.lado}</span></div><span>{elegido ? '✓' : '+'}</span></div><div className="mt-2 flex justify-between text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span className="font-black">{j.valor}M</span></div></button>})}</div>
             </div>
           </div>
         )}
@@ -1231,7 +1176,7 @@ export default function PadelApp() {
           {[
             { id: 'inicio', icon: Sparkles, label: 'Inicio' },
             { id: 'eventos', icon: Calendar, label: 'Eventos' },
-            { id: 'pistas', icon: Users, label: 'Partidos' },
+            { id: 'pistas', icon: Users, label: 'Mis partidos' },
             { id: 'rankings', icon: Trophy, label: 'Ranking' },
             { id: 'fantasy', icon: Flame, label: 'Fantasy' },
             { id: 'perfil', icon: Settings, label: 'Perfil' },
