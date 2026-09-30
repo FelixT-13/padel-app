@@ -67,20 +67,22 @@ export default function PadelApp() {
   const [participantesEventoMap, setParticipantesEventoMap] = useState<{[key: number]: string[]}>({ 1: ['1','2','3','4'], 2: ['1','2','3','4'] });
   const [ladoPorJugador, setLadoPorJugador] = useState<{[key: string]: 'derecha' | 'reves'}>({ '1': 'derecha', '2': 'reves', '3': 'derecha', '4': 'reves' });
   const [partidosEventoMap, setPartidosEventoMap] = useState<{[key: number]: any[]}>({});
+  const [jugadoresSinParejaMap, setJugadoresSinParejaMap] = useState<{[key: number]: string[]}>({});
+  const [parejasEventoMap, setParejasEventoMap] = useState<{[key: number]: string[][]}>({});
   
   const [eventoRegistrandoId, setEventoRegistrandoId] = useState<number | null>(null);
   const [nombreParejaInput, setNombreParejaInput] = useState('');
   const [ladoInscripcion, setLadoInscripcion] = useState<'derecha' | 'reves'>('derecha');
   const [ladoParejaInscripcion, setLadoParejaInscripcion] = useState<'derecha' | 'reves'>('reves');
+  const [modoInscripcion, setModoInscripcion] = useState<'pareja' | 'solo'>('pareja');
 
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
   const [faseTorneo, setFaseTorneo] = useState<'grupos' | 'principal' | 'consolacion'>('grupos');
 
-  // Seguridad Organizador
-  const [pinAdmin, setPinAdmin] = useState('');
-  const [esOrganizador, setEsOrganizador] = useState(false);
-  const [errorPin, setErrorPin] = useState(false);
+  // Organizador: durante este prototipo se simula una cuenta marcada como organizador.
+  // Al conectar Supabase se sustituye por la consulta a la tabla `organizadores`.
+  const [esOrganizador] = useState(true);
 
   // Eventos
   const [eventos, setEventos] = useState(EVENTOS_INICIALES);
@@ -148,66 +150,85 @@ export default function PadelApp() {
     });
 
     setAuthStep('app');
-    setMensajeExito(`¡Bienvenido/a, ${miPerfil.nombreCompleto}! 🎾`);
+    setMensajeExito(`¡Bienvenido/a, ${miPerfil.nombreCompleto}! 🏓`);
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
-  const handleLoginOrganizador = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pinAdmin === '1234') {
-      setEsOrganizador(true);
-      setErrorPin(false);
-      setPinAdmin('');
-    } else {
-      setErrorPin(true);
-    }
+  const crearCalendarioTorneo = (eventoId: number, parejaA: string[], parejaB: string[]) => {
+    const base = Date.now();
+    const rival2 = ['Rival grupo 2', 'Rival grupo 2'];
+    const rival3 = ['Rival grupo 3', 'Rival grupo 3'];
+    const partidos = [
+      { id: base + 1, eventoId, fase: 'grupos', ronda: 'Jornada 1', nombre: 'Grupo A · Jornada 1', hora: '10:00h', parej1: parejaA, pareja2: parejaB, resultado: '' },
+      { id: base + 2, eventoId, fase: 'grupos', ronda: 'Jornada 2', nombre: 'Grupo A · Jornada 2', hora: '11:00h', parej1: parejaA, pareja2: rival2, resultado: '' },
+      { id: base + 3, eventoId, fase: 'grupos', ronda: 'Jornada 3', nombre: 'Grupo A · Jornada 3', hora: '12:00h', parej1: parejaA, pareja2: rival3, resultado: '' },
+      { id: base + 4, eventoId, fase: 'eliminatoria', ronda: 'Cuartos / Cruce', nombre: 'Eliminatoria · Cuartos / Cruce', hora: '13:30h', parej1: parejaA, pareja2: ['Clasificado grupo', 'Clasificado grupo'], resultado: '' },
+    ];
+    setPartidosEventoMap(prev => ({ ...prev, [eventoId]: partidos }));
+    setEventoActivoId(eventoId);
   };
 
   const generarPartidosTorneo = (eventoId: number, parejaA: string, parejaB: string) => {
-    const rivales = [
-      ['Angel Ruiz', 'Rober Sanchez'],
-      ['Lidia Martin', 'Jugador C'],
-      ['Jugador D', 'Jugador E'],
-    ];
-    const base = Date.now();
-    const nuevos = [
-      { id: base + 1, eventoId, fase: 'grupos', ronda: 'Jornada 1', nombre: 'Grupo A · Jornada 1', hora: '10:00h', parej1: [parejaA, parejaB], pareja2: rivales[0], resultado: '' },
-      { id: base + 2, eventoId, fase: 'grupos', ronda: 'Jornada 2', nombre: 'Grupo A · Jornada 2', hora: '11:00h', parej1: [parejaA, parejaB], pareja2: rivales[1], resultado: '' },
-      { id: base + 3, eventoId, fase: 'grupos', ronda: 'Jornada 3', nombre: 'Grupo A · Jornada 3', hora: '12:00h', parej1: [parejaA, parejaB], pareja2: rivales[2], resultado: '' },
-      { id: base + 4, eventoId, fase: 'eliminatoria', ronda: 'Cuartos / Cruce', nombre: 'Cuadro · Eliminatoria', hora: '13:30h', parej1: [parejaA, parejaB], pareja2: ['Clasificado grupo', 'Clasificado grupo'], resultado: '' },
-    ];
-    setPartidosEventoMap(prev => ({ ...prev, [eventoId]: nuevos }));
+    crearCalendarioTorneo(eventoId, [parejaA, parejaB], ['Angel Ruiz', 'Rober Sanchez']);
+  };
+
+  const emparejarJugadoresSolos = (eventoId: number, jugadores: string[]) => {
+    if (jugadores.length < 2) return;
+    const parejasActuales = parejasEventoMap[eventoId] || [];
+    const nuevasParejas = [...parejasActuales];
+    // Quienes se apuntan solos también se emparejan mediante sorteo aleatorio.
+    const pendientes = [...jugadores];
+    for (let i = pendientes.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pendientes[i], pendientes[j]] = [pendientes[j], pendientes[i]];
+    }
+    while (pendientes.length >= 2) nuevasParejas.push([pendientes.shift()!, pendientes.shift()!]);
+    setParejasEventoMap(prev => ({ ...prev, [eventoId]: nuevasParejas }));
+    setJugadoresSinParejaMap(prev => ({ ...prev, [eventoId]: pendientes }));
+    const evento = eventos.find(ev => ev.id === eventoId);
+    if (evento?.tipo === 'Torneo' && nuevasParejas.length >= 2) {
+      crearCalendarioTorneo(eventoId, nuevasParejas[nuevasParejas.length - 2], nuevasParejas[nuevasParejas.length - 1]);
+    } else if (evento?.tipo === 'Pozo' && nuevasParejas.length >= 1) {
+      const pareja = nuevasParejas[nuevasParejas.length - 1];
+      setPartidosEventoMap(prev => ({
+        ...prev,
+        [eventoId]: [{ id: Date.now(), eventoId, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: pareja, pareja2: ['Pendiente de sorteo', 'Pendiente de sorteo'], resultado: '' }]
+      }));
+      setEventoActivoId(eventoId);
+    }
   };
 
   const handleConfirmarInscripcion = (eventoId: number) => {
-    const parejaNombre = nombreParejaInput.trim();
-    if (!parejaNombre) return;
-
-    setMiPerfil(prev => ({ ...prev, lado: ladoInscripcion }));
     const miJugador = ranking.find((j) => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
-    const parejaJugador = ranking.find((j) => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
-    setLadoPorJugador(prev => ({ ...prev, ...(miJugador ? { [miJugador.id]: ladoInscripcion } : {}), ...(parejaJugador ? { [parejaJugador.id]: ladoParejaInscripcion } : {}) }));
-    setRanking(prev => prev.map(j =>
-      j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase()
-        ? { ...j, lado: ladoInscripcion }
-        : j.nombre.toLowerCase() === parejaNombre.toLowerCase()
-          ? { ...j, lado: ladoParejaInscripcion }
-          : j
-    ));
-
-    setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
-    setParticipantesEventoMap(prev => ({
-      ...prev,
-      [eventoId]: Array.from(new Set([...(prev[eventoId] || []), miJugador?.id, parejaJugador?.id].filter(Boolean) as string[]))
-    }));
+    if (!miJugador) return;
+    const parejaNombre = nombreParejaInput.trim();
     const evento = eventos.find(ev => ev.id === eventoId);
-    if (evento?.tipo === 'Torneo') generarPartidosTorneo(eventoId, miPerfil.nombreCompleto, parejaNombre);
-    else setPartidosEventoMap(prev => ({ ...prev, [eventoId]: [{ id: Date.now(), eventoId, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: [miPerfil.nombreCompleto, parejaNombre], pareja2: ['Angel Ruiz', 'Rober Sanchez'], resultado: '' }] }));
-    setEventoActivoId(eventoId);
+
+    setLadoPorJugador(prev => ({ ...prev, [miJugador.id]: ladoInscripcion }));
+    setRanking(prev => prev.map(j => j.id === miJugador.id ? { ...j, lado: ladoInscripcion } : j));
+
+    if (modoInscripcion === 'solo') {
+      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: Array.from(new Set([...(prev[eventoId] || []), miJugador.id])) }));
+      const pendientes = Array.from(new Set([...(jugadoresSinParejaMap[eventoId] || []), miPerfil.nombreCompleto]));
+      emparejarJugadoresSolos(eventoId, pendientes);
+      setInscritosMap(prev => ({ ...prev, [eventoId]: '' }));
+      setEventoRegistrandoId(null);
+      setMensajeExito(pendientes.length >= 2 ? '¡Te has apuntado sin pareja! Se ha formado una pareja automáticamente. 🏓' : '¡Te has apuntado sin pareja! Quedas en la lista de jugadores sin pareja. Cuando haya otro, se formará la pareja automáticamente.');
+    } else {
+      if (!parejaNombre) return;
+      const parejaJugador = ranking.find((j) => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
+      setLadoPorJugador(prev => ({ ...prev, ...(parejaJugador ? { [parejaJugador.id]: ladoParejaInscripcion } : {}) }));
+      setRanking(prev => prev.map(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase() ? { ...j, lado: ladoParejaInscripcion } : j));
+      setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
+      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: Array.from(new Set([...(prev[eventoId] || []), miJugador.id, parejaJugador?.id].filter(Boolean) as string[])) }));
+      setParejasEventoMap(prev => ({ ...prev, [eventoId]: [...(prev[eventoId] || []), [miPerfil.nombreCompleto, parejaNombre]] }));
+      if (evento?.tipo === 'Torneo') crearCalendarioTorneo(eventoId, [miPerfil.nombreCompleto, parejaNombre], ['Angel Ruiz', 'Rober Sanchez']);
+      else setPartidosEventoMap(prev => ({ ...prev, [eventoId]: [{ id: Date.now(), eventoId, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: [miPerfil.nombreCompleto, parejaNombre], pareja2: ['Pendiente de sorteo', 'Pendiente de sorteo'], resultado: '' }] }));
+      setEventoActivoId(eventoId);
+      setMensajeExito(`¡Inscripción confirmada! ${miPerfil.nombreCompleto}: ${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ${parejaNombre}: ${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`);
+    }
     setActiveTab('pistas');
-    setEventoRegistrandoId(null);
     setNombreParejaInput('');
-    setMensajeExito(`¡Inscripción confirmada! ${miPerfil.nombreCompleto}: ${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ${parejaNombre}: ${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`);
     setTimeout(() => setMensajeExito(''), 3500);
   };
 
@@ -232,11 +253,10 @@ export default function PadelApp() {
     const copia = { ...inscritosMap };
     delete copia[eventoId];
     setInscritosMap(copia);
-    setParticipantesEventoMap(prev => {
-      const next = { ...prev };
-      delete next[eventoId];
-      return next;
-    });
+    setParticipantesEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
+    setJugadoresSinParejaMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
+    setParejasEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
+    setPartidosEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
     if (eventoActivoId === eventoId) setEventoActivoId(null);
   };
 
@@ -348,6 +368,7 @@ export default function PadelApp() {
 
   const etiquetaLado = (lado: string) => lado === 'derecha' ? 'DERECHA' : 'REVÉS';
 
+  // Sorteo siempre aleatorio: ni el nivel ni el lado condicionan el reparto inicial.
   const handleMezclarPistas = () => {
     const nombres = ranking.map((r) => r.nombre).filter(n => n !== miPerfil.nombreCompleto && n !== parejaInscritaActual);
     const mezclados = [...nombres];
@@ -363,7 +384,7 @@ export default function PadelApp() {
   };
 
   const compartirEvento = (evento: any) => {
-    const texto = `🎾 *${evento.titulo.toUpperCase()}* 🎾\n📅 ${evento.fecha}\n📍 ${evento.club}\n\n👉 ¡Apúntate desde Padel Arena!`;
+    const texto = `PADEL ARENA · ${evento.titulo.toUpperCase()}\n📅 ${evento.fecha}\n📍 ${evento.club}\n\n👉 ¡Apúntate desde Padel Arena!`;
     if (navigator.share) {
       navigator.share({ title: evento.titulo, text: texto, url: window.location.href }).catch(() => {});
     } else {
@@ -381,6 +402,8 @@ export default function PadelApp() {
       valor: Number((12 + j.nivel * 4 + (j.fantasyPuntos ?? 0) / 250).toFixed(1)),
       fantasyPts: j.fantasyPuntos ?? (j.puntosTorneos + j.puntosPozos),
     }));
+  // Mercado diario de 4 jugadores. En la versión con Supabase esto pasará a salir de fantasy_mercado.
+  const fantasyMercado = fantasyJugadores.slice(0, 4);
   const fantasySeleccionados = fantasyJugadores.filter(j => fantasyEquipo.includes(j.id));
   const fantasyGastado = fantasySeleccionados.reduce((sum, j) => sum + j.valor, 0);
   const fantasySaldo = fantasyPresupuesto - fantasyGastado;
@@ -407,7 +430,7 @@ export default function PadelApp() {
             <h1 className="text-2xl font-black tracking-wider text-slate-900 uppercase">
               Padel Arena
             </h1>
-            <p className="text-xs text-slate-500">Introduce tus credenciales de acceso</p>
+            <p className="text-xs text-slate-500">Tu comunidad de eventos de pádel</p>
           </div>
 
           <div className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-6 space-y-4 shadow-xl">
@@ -456,9 +479,9 @@ export default function PadelApp() {
         <div className="w-full space-y-6 animate-in fade-in zoom-in-95 duration-300">
           <div className="text-center space-y-2">
             <h1 className="text-xl font-black tracking-wider text-slate-900 uppercase">
-              Completa tu Perfil de Jugador
+              Crea tu perfil de jugador
             </h1>
-            <p className="text-xs text-slate-500">Necesitamos estos datos para las inscripciones y torneos</p>
+            <p className="text-xs text-slate-500">Tu nivel y tu lado nos ayudan a colocarte mejor en pista.</p>
           </div>
 
           {mensajeExito && (
@@ -529,7 +552,7 @@ export default function PadelApp() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => setActiveTab('admin')} className="h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-600 flex items-center justify-center shadow-sm active:scale-95" title="Organizador">
+          <button onClick={() => setActiveTab('admin')} className="h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-600 flex items-center justify-center shadow-sm active:scale-95" title="Panel organizador">
             <Shield className="w-4 h-4" />
           </button>
           <button 
@@ -552,23 +575,42 @@ export default function PadelApp() {
         {/* INICIO / DASHBOARD */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 animate-in fade-in duration-300">
-            <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-400 p-5 text-white shadow-xl">
-              <div className="relative z-10 max-w-[75%]">
-                <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Padel Arena</div>
-                <h2 className="mt-1 text-3xl font-black leading-none">Juega. Compite. Repite. 🟢</h2>
-                <p className="mt-2 text-xs font-semibold text-white/85">Tus eventos, tus partidos, tu ranking y tu Fantasy en un solo sitio.</p>
-                <button onClick={() => setActiveTab('eventos')} className="mt-4 rounded-xl bg-white px-4 py-2.5 text-xs font-black text-emerald-700 shadow-lg active:scale-95">Ver próximos eventos →</button>
+            <section className="relative overflow-hidden rounded-[32px] bg-[#101b17] p-5 text-white shadow-[0_18px_45px_rgba(16,185,129,.20)]">
+              <div className="absolute inset-0 opacity-70" style={{backgroundImage:'radial-gradient(circle at 85% 15%, rgba(190,242,100,.35), transparent 28%), linear-gradient(135deg, rgba(16,185,129,.9), rgba(16,27,23,.98) 58%)'}} />
+              <div className="absolute -right-16 -bottom-24 h-64 w-64 rounded-full border-[34px] border-lime-300/10" />
+              <div className="absolute right-5 top-5 opacity-95">
+                <svg width="92" height="120" viewBox="0 0 92 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <rect x="25" y="4" width="42" height="68" rx="18" transform="rotate(12 25 4)" fill="#D9F99D" stroke="white" stroke-width="3"/>
+                  <circle cx="39" cy="25" r="3" fill="#101B17"/><circle cx="51" cy="28" r="3" fill="#101B17"/><circle cx="34" cy="39" r="3" fill="#101B17"/><circle cx="47" cy="42" r="3" fill="#101B17"/><circle cx="59" cy="45" r="3" fill="#101B17"/>
+                  <path d="M47 69L59 112" stroke="white" stroke-width="9" stroke-linecap="round"/><path d="M52 78L63 116" stroke="#D9F99D" stroke-width="4" stroke-linecap="round"/>
+                  <circle cx="77" cy="25" r="9" fill="white"/><path d="M73 25L77 21L81 25L77 29L73 25Z" fill="#101B17"/>
+                </svg>
               </div>
-              <div className="absolute -right-10 -bottom-10 h-44 w-44 rounded-full bg-white/15" />
-              <div className="absolute right-5 top-5 text-6xl rotate-12">🎾</div>
+              <div className="relative z-10 max-w-[72%]">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-lime-300 shadow-[0_0_12px_rgba(190,242,100,.9)]" /> Padel Arena
+                </div>
+                <h2 className="mt-3 text-[31px] font-black leading-[.92] tracking-tight">Donde empieza<br/>el próximo partido.</h2>
+                <p className="mt-3 text-xs font-medium leading-relaxed text-white/75">Eventos reales, partidos, ranking y Fantasy. Entra, compite y sigue tu evolución.</p>
+                <div className="mt-4 flex gap-2">
+                  <button onClick={() => setActiveTab('eventos')} className="rounded-xl bg-lime-300 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-[#101b17] shadow-lg shadow-lime-300/20 active:scale-95">Ver eventos</button>
+                  <button onClick={() => setActiveTab('fantasy')} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white active:scale-95">Fantasy</button>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200"><span className="text-[9px] font-black uppercase text-slate-400">Eventos</span><b className="mt-1 block text-xl font-black text-slate-900">{eventos.length}</b><span className="text-[9px] font-semibold text-emerald-600">activos</span></div>
+              <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200"><span className="text-[9px] font-black uppercase text-slate-400">Ranking</span><b className="mt-1 block text-xl font-black text-slate-900">{ranking.length}</b><span className="text-[9px] font-semibold text-emerald-600">jugadores</span></div>
+              <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200"><span className="text-[9px] font-black uppercase text-slate-400">Mi Fantasy</span><b className="mt-1 block text-xl font-black text-slate-900">{fantasyEquipo.length}/2</b><span className="text-[9px] font-semibold text-emerald-600">fichajes</span></div>
             </section>
 
             <section className="grid grid-cols-2 gap-3">
               <button onClick={() => setActiveTab('pistas')} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:-translate-y-0.5 transition">
-                <div className="text-2xl">🏟️</div><div className="mt-2 text-sm font-black">Partidos</div><div className="text-[10px] text-slate-500">Entra en la pista</div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-xl">🏟️</div><div className="mt-2 text-sm font-black text-slate-900">Mis partidos</div><div className="text-[10px] text-slate-500">Tu pista y tus horarios</div>
               </button>
               <button onClick={() => setActiveTab('fantasy')} className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:-translate-y-0.5 transition">
-                <div className="text-2xl">🧠</div><div className="mt-2 text-sm font-black">Fantasy</div><div className="text-[10px] text-slate-500">Crea tu equipo</div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-50 text-xl">⚡</div><div className="mt-2 text-sm font-black text-slate-900">Fantasy</div><div className="text-[10px] text-slate-500">Ficha 2 jugadores</div>
               </button>
             </section>
 
@@ -654,12 +696,7 @@ export default function PadelApp() {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-black tracking-widest text-slate-500 uppercase">Mis partidos • Pozo</h3>
-                      <button
-                        onClick={handleMezclarPistas}
-                        className="bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-95 transition-all shadow-md"
-                      >
-                        <Shuffle className="w-3.5 h-3.5" /> Sortear
-                      </button>
+                      <span className="rounded-xl bg-slate-100 px-3 py-1.5 text-[9px] font-black uppercase tracking-wide text-slate-500">Sorteo aleatorio</span>
                     </div>
 
                     {partidosVisibles.map((p) => {
@@ -758,7 +795,7 @@ export default function PadelApp() {
                     <div className="mt-4 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} plazas ocupadas</span>
                       {inscrito ? (
-                        <button onClick={() => { setEventoActivoId(evento.id); if (!partidosEventoMap[evento.id]) { if (evento.tipo === 'Torneo') generarPartidosTorneo(evento.id, miPerfil.nombreCompleto || 'Felix Gomez', inscritosMap[evento.id] || 'Lidia Martin'); else setPartidosEventoMap(prev => ({ ...prev, [evento.id]: [{ id: Date.now(), eventoId: evento.id, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: [miPerfil.nombreCompleto || 'Felix Gomez', inscritosMap[evento.id] || 'Lidia Martin'], pareja2: ['Angel Ruiz', 'Rober Sanchez'], resultado: '' }] })); } setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
+                        <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
                       ) : (
                         <button onClick={() => { setEventoRegistrandoId(evento.id); setLadoInscripcion(miPerfil.lado); setLadoParejaInscripcion(miPerfil.lado === 'derecha' ? 'reves' : 'derecha'); }} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white shadow-md">Apuntarme</button>
                       )}
@@ -783,11 +820,25 @@ export default function PadelApp() {
                             </select>
                           </div>
                         </div>
-                        <input value={nombreParejaInput} onChange={e => setNombreParejaInput(e.target.value)} placeholder="Nombre de tu pareja" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-semibold text-slate-900 placeholder:text-slate-400" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => setModoInscripcion('pareja')} className={`rounded-xl p-2.5 text-[10px] font-black uppercase ${modoInscripcion === 'pareja' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>👥 Tengo pareja</button>
+                          <button type="button" onClick={() => setModoInscripcion('solo')} className={`rounded-xl p-2.5 text-[10px] font-black uppercase ${modoInscripcion === 'solo' ? 'bg-amber-400 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>🙋 Me apunto solo</button>
+                        </div>
+                        {modoInscripcion === 'pareja' ? (
+                          <input value={nombreParejaInput} onChange={e => setNombreParejaInput(e.target.value)} placeholder="Nombre de tu pareja" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-semibold text-slate-900 placeholder:text-slate-400" />
+                        ) : (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-800"><b>Sin pareja</b><br/>Te añadimos a la lista de jugadores solos. Cuando haya otra persona sola en este evento, el sistema formará automáticamente la pareja.</div>
+                        )}
                         <div className="flex gap-2">
                           <button onClick={() => handleConfirmarInscripcion(evento.id)} className="flex-1 rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white">Confirmar inscripción</button>
-                          <button onClick={() => { setEventoRegistrandoId(null); setNombreParejaInput(''); }} className="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-600 border border-slate-200">Cancelar</button>
+                          <button onClick={() => { setEventoRegistrandoId(null); setNombreParejaInput(''); setModoInscripcion('pareja'); }} className="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-600 border border-slate-200">Cancelar</button>
                         </div>
+                      </div>
+                    )}
+                    {(jugadoresSinParejaMap[evento.id] || []).length > 0 && (
+                      <div className="mt-3 rounded-2xl bg-amber-50 border border-amber-200 p-3">
+                        <div className="flex items-center justify-between"><span className="text-[9px] font-black uppercase text-amber-800">Jugadores sin pareja</span><span className="rounded-full bg-white px-2 py-1 text-[9px] font-black text-amber-700">{jugadoresSinParejaMap[evento.id].length}</span></div>
+                        <p className="mt-1 text-[10px] text-amber-700">Cuando haya 2, Padel Arena los junta automáticamente.</p>
                       </div>
                     )}
                   </div>
@@ -877,7 +928,7 @@ export default function PadelApp() {
           <div className="space-y-5 animate-in fade-in duration-300">
             <div className="rounded-3xl bg-white border border-emerald-200 p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
-                <div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Fantasy Padel</span><h2 className="mt-1 text-2xl font-black text-slate-900">Fíchalos. Véndelos. Compite.</h2><p className="mt-1 text-xs text-slate-500">Tu equipo tiene solo 2 jugadores. Compra con tu presupuesto y vende para recuperar saldo.</p></div>
+                <div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Fantasy Padel</span><h2 className="mt-1 text-2xl font-black text-slate-900">Fíchalos. Véndelos. Compite.</h2><p className="mt-1 text-xs text-slate-500">Solo puedes llevar 2 jugadores. Gasta tu presupuesto, compite y vende cuando quieras recuperar valor.</p></div>
                 <div className="text-right shrink-0"><span className="block text-2xl font-black text-emerald-600">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-slate-400">pts Fantasy</span></div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2">
@@ -889,15 +940,15 @@ export default function PadelApp() {
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3"><div><h3 className="font-black text-slate-900">Mi equipo</h3><p className="text-[10px] text-slate-500">Compra 2 jugadores para competir esta jornada.</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-600">{fantasyEquipo.length}/2</span></div>
               {fantasySeleccionados.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-center"><div className="text-2xl">🎾</div><p className="mt-1 text-xs font-black text-slate-800">Aún no tienes jugadores</p><p className="text-[10px] text-slate-500">Fícha jugadores de eventos en los que ya participan.</p></div>
+                <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-center"><div className="text-2xl">🏓</div><p className="mt-1 text-xs font-black text-slate-800">Aún no tienes jugadores</p><p className="text-[10px] text-slate-500">Fícha jugadores de eventos en los que ya participan.</p></div>
               ) : (
                 <div className="space-y-2">{fantasySeleccionados.map(j => <div key={j.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"><div><b className="block text-xs text-slate-900">{j.nombre}</b><span className="text-[9px] font-bold text-slate-500">{j.lado === 'derecha' ? 'Derecha' : 'Revés'} · {j.fantasyPts} pts</span></div><div className="flex items-center gap-2"><b className="text-xs text-emerald-700">{j.valor}M</b><button onClick={() => handleVenderFantasy(j.id)} className="rounded-lg bg-white border border-slate-200 px-2 py-1 text-[9px] font-black uppercase text-slate-600 hover:border-red-200 hover:text-red-600">Vender</button></div></div>)}</div>
               )}
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between"><div><h3 className="font-black text-slate-900">Mercado de jugadores</h3><p className="mt-1 text-[10px] text-slate-500">Solo jugadores que ya participan en eventos. El precio se basa en su rendimiento.</p></div><span className="text-[9px] font-black uppercase text-emerald-600">Compra / venta</span></div>
-              <div className="mt-3 space-y-2">{fantasyJugadores.map(j => { const elegido=fantasyEquipo.includes(j.id); const puedeComprar=!elegido && fantasyEquipo.length<2 && fantasySaldo>=j.valor; return <div key={j.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-xs truncate text-slate-900">{j.nombre}</b><span className="text-[8px] font-black uppercase text-slate-400">{j.lado}</span></div><div className="mt-1 flex gap-3 text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span>Nivel {j.nivel.toFixed(1)}</span></div></div><div className="flex items-center gap-2 shrink-0"><b className="text-xs text-slate-900">{j.valor}M</b>{elegido ? <button onClick={() => handleVenderFantasy(j.id)} className="rounded-xl bg-white border border-slate-200 px-2.5 py-1.5 text-[9px] font-black uppercase text-red-600">Vender</button> : <button disabled={!puedeComprar} onClick={() => handleComprarFantasy(j.id)} className={`rounded-xl px-2.5 py-1.5 text-[9px] font-black uppercase ${puedeComprar ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Fichar</button>}</div></div> })}</div>
+              <div className="flex items-center justify-between"><div><h3 className="font-black text-slate-900">Mercado de hoy</h3><p className="mt-1 text-[10px] text-slate-500">4 jugadores disponibles hoy. Los fichajes se mantienen hasta que los vendas.</p></div><span className="text-[9px] font-black uppercase text-emerald-600">Compra / venta</span></div>
+              <div className="mt-3 space-y-2">{fantasyMercado.map(j => { const elegido=fantasyEquipo.includes(j.id); const puedeComprar=!elegido && fantasyEquipo.length<2 && fantasySaldo>=j.valor; return <div key={j.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-xs truncate text-slate-900">{j.nombre}</b><span className="text-[8px] font-black uppercase text-slate-400">{j.lado}</span></div><div className="mt-1 flex gap-3 text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span>Nivel {j.nivel.toFixed(1)}</span></div></div><div className="flex items-center gap-2 shrink-0"><b className="text-xs text-slate-900">{j.valor}M</b>{elegido ? <button onClick={() => handleVenderFantasy(j.id)} className="rounded-xl bg-white border border-slate-200 px-2.5 py-1.5 text-[9px] font-black uppercase text-red-600">Vender</button> : <button disabled={!puedeComprar} onClick={() => handleComprarFantasy(j.id)} className={`rounded-xl px-2.5 py-1.5 text-[9px] font-black uppercase ${puedeComprar ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Fichar</button>}</div></div> })}</div>
             </div>
           </div>
         )}
@@ -905,52 +956,18 @@ export default function PadelApp() {
         {/* PESTAÑA ADMIN */}
         {activeTab === 'admin' && (
           <div className="space-y-5">
-            {!esOrganizador ? (
-              <div className="bg-white border-2 border-emerald-200 rounded-3xl p-6 text-center space-y-4 shadow-xl">
-                <div className="w-14 h-14 bg-emerald-500 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg">
-                  <Lock className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">Acceso Restringido</h3>
-                  <p className="text-xs text-slate-500 mt-1">Introduce el PIN de organizador (1234).</p>
-                </div>
-
-                <form onSubmit={handleLoginOrganizador} className="space-y-3 pt-2">
-                  <input
-                    type="password"
-                    placeholder="PIN (1234)"
-                    value={pinAdmin}
-                    onChange={(e) => setPinAdmin(e.target.value)}
-                    className="w-full bg-[#f4f7f5] border border-slate-200 rounded-2xl p-3 text-center text-lg font-black text-slate-900 tracking-widest focus:outline-none focus:border-cyan-400"
-                  />
-                  {errorPin && (
-                    <p className="text-xs font-bold text-rose-400">PIN incorrecto (prueba con 1234)</p>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg"
-                  >
-                    Desbloquear Panel
-                  </button>
-                </form>
-              </div>
-            ) : (
+            {esOrganizador ? (
               <div className="space-y-5 animate-in fade-in duration-300">
                 <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-emerald-200">
                   <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
-                    <Unlock className="w-4 h-4 text-emerald-600" /> Modo Organizador Activo
+                    <Unlock className="w-4 h-4 text-emerald-600" /> Modo Organizador
                   </span>
-                  <button 
-                    onClick={() => setEsOrganizador(false)}
-                    className="text-xs text-rose-300 font-bold bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20"
-                  >
-                    Bloquear
-                  </button>
+                  <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase text-emerald-700">Cuenta autorizada</span>
                 </div>
 
                 <div className="bg-white/90 border-2 border-emerald-200 p-4 rounded-3xl space-y-4 shadow-xl">
                   <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-emerald-600" /> Crear Nuevo Evento
+                    <Shield className="w-4 h-4 text-emerald-600" /> Publicar nuevo evento
                   </h3>
 
                   <form onSubmit={handleCrearEvento} className="space-y-3">
@@ -990,7 +1007,7 @@ export default function PadelApp() {
                   </form>
 
                   <div className="pt-3 border-t border-slate-200 space-y-2">
-                    <span className="text-[10px] uppercase font-extrabold text-emerald-700 block">Eventos Activos (Borrar)</span>
+                    <span className="text-[10px] uppercase font-extrabold text-emerald-700 block">Eventos publicados</span>
                     {eventos.map((ev) => (
                       <div key={ev.id} className="flex justify-between items-center bg-[#f4f7f5] p-2.5 rounded-xl border border-slate-200/60">
                         <span className="text-xs font-bold text-slate-900 truncate max-w-[200px]">{ev.titulo}</span>
@@ -1007,7 +1024,7 @@ export default function PadelApp() {
 
                 <div className="bg-white/90 border-2 border-emerald-200 p-4 rounded-3xl space-y-3.5 shadow-xl">
                   <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
-                    <Award className="w-4 h-4 text-emerald-600" /> Cierre de Puntos & Clasificación
+                    <Award className="w-4 h-4 text-emerald-600" /> Resultados y puntos
                   </h3>
 
                   <form onSubmit={handleGuardarCierre} className="space-y-3">
@@ -1118,6 +1135,12 @@ export default function PadelApp() {
                   </form>
                 </div>
               </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                <Shield className="mx-auto h-10 w-10 text-slate-300" />
+                <h3 className="mt-3 text-base font-black text-slate-900">Panel de organizador</h3>
+                <p className="mt-1 text-xs text-slate-500">Tu cuenta no está marcada como organizador.</p>
+              </div>
             )}
           </div>
         )}
@@ -1205,8 +1228,12 @@ export default function PadelApp() {
         )}
       </main>
 
+      <div className="px-4 pb-4 pt-1 text-center">
+        <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-400">PADEL ARENA · Eventos · Partidos · Ranking · Fantasy</span>
+      </div>
+
       {/* Navegación Inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t-2 border-emerald-200 p-2 max-w-md mx-auto z-40">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/96 backdrop-blur-xl border-t border-slate-200 shadow-[0_-10px_30px_rgba(15,23,42,.06)] p-2 max-w-md mx-auto z-40">
         <div className="flex justify-around items-center gap-0.5">
           {[
             { id: 'inicio', icon: Sparkles, label: 'Inicio' },
