@@ -470,11 +470,22 @@ export default function PadelApp() {
 
                     <div>
                       <h3 className="text-lg font-black text-white leading-tight">{evento.titulo}</h3>
+                      
+                      {/* DIRECCIÓN CON ENLACE A GOOGLE MAPS */}
                       <p className="text-xs text-cyan-100 mt-1.5 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-cyan-400" /> {evento.club}
+                        <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> 
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evento.club)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-cyan-300 transition-colors font-medium"
+                        >
+                          {evento.club} 📍
+                        </a>
                       </p>
-                      <p className="text-xs text-cyan-100 mt-0.5 flex items-center gap-1.5">
-                        <Flame className="w-3.5 h-3.5 text-amber-400" /> {evento.fecha}
+
+                      <p className="text-xs text-cyan-100 mt-1 flex items-center gap-1.5">
+                        <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" /> {evento.fecha}
                       </p>
                     </div>
 
@@ -597,6 +608,14 @@ export default function PadelApp() {
                   <div>
                     <span className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider block">Estás consultando:</span>
                     <h3 className="text-sm font-black text-white">{eventoSeleccionado.titulo}</h3>
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(eventoSeleccionado.club)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-cyan-300 underline block mt-0.5"
+                    >
+                      📍 {eventoSeleccionado.club} (Ver en Maps)
+                    </a>
                   </div>
                   <button
                     onClick={() => setEventoActivoId(null)}
