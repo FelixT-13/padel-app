@@ -96,11 +96,32 @@ export default function PadelApp() {
   };
 
   const handleConfirmarInscripcion = (eventoId: number) => {
-    if (!nombreParejaInput.trim()) return;
-    setInscritosMap(prev => ({ ...prev, [eventoId]: nombreParejaInput.trim() }));
+    const parejaNombre = nombreParejaInput.trim();
+    if (!parejaNombre) return;
+
+    setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
+    
+    // Añadir automáticamente al jugador al ranking si no existe para que se le puedan asignar puntos
+    setRanking(prev => {
+      const existe = prev.some(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
+      if (!existe) {
+        return [...prev, {
+          id: Date.now().toString(),
+          nombre: parejaNombre,
+          nivel: 3.5,
+          pozos: 0,
+          puntosPozos: 0,
+          torneosJugados: 0,
+          puntosTorneos: 0,
+          racha: '-'
+        }];
+      }
+      return prev;
+    });
+
     setEventoRegistrandoId(null);
     setNombreParejaInput('');
-    setMensajeExito('¡Inscripción de pareja realizada con éxito!');
+    setMensajeExito(`¡Inscripción confirmada con ${parejaNombre}!`);
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
@@ -210,22 +231,25 @@ export default function PadelApp() {
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
+  const eventoSeleccionado = eventos.find(ev => ev.id === eventoActivoId);
+  const parejaInscritaActual = eventoSeleccionado ? (inscritosMap[eventoSeleccionado.id] || 'Pareja') : 'Lidia';
+
   const handleMezclarPistas = () => {
-    const nombres = ranking.map((r) => r.nombre);
+    const nombres = ranking.map((r) => r.nombre).filter(n => n !== miPerfil.nombre && n !== parejaInscritaActual);
     const mezclados = [...nombres].sort(() => Math.random() - 0.5);
 
     setPistas([
       {
         numero: 1,
         nombre: 'Pista 1 • Central WPT',
-        parej1: [miPerfil.nombre, 'Lidia'],
+        parej1: [miPerfil.nombre, parejaInscritaActual],
         pareja2: [mezclados[0] || 'Angel', mezclados[1] || 'Rober'],
       },
       {
         numero: 2,
         nombre: 'Pista 2',
-        parej1: ['Jugador A', 'Jugador B'],
-        pareja2: ['Jugador C', 'Jugador D'],
+        parej1: [mezclados[2] || 'Jugador A', mezclados[3] || 'Jugador B'],
+        pareja2: [mezclados[4] || 'Jugador C', mezclados[5] || 'Jugador D'],
       },
     ]);
   };
@@ -246,8 +270,6 @@ export default function PadelApp() {
       return b.puntosTorneos - a.puntosTorneos;
     }
   });
-
-  const eventoSeleccionado = eventos.find(ev => ev.id === eventoActivoId);
 
   return (
     <div className="min-h-screen bg-[#112948] text-slate-100 font-sans pb-32 max-w-md mx-auto relative border-x border-[#1A3D6C] shadow-2xl">
@@ -466,29 +488,33 @@ export default function PadelApp() {
                       </button>
                     </div>
 
-                    {pistas.map((p) => (
-                      <div key={p.numero} className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4 space-y-3 shadow-xl">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> {p.nombre}
-                          </span>
-                        </div>
+                    {pistas.map((p) => {
+                      const pareja1Actual = (p.numero === 1) ? [miPerfil.nombre, parejaInscritaActual] : p.parej1;
 
-                        <div className="relative bg-[#174F8A] border-4 border-white rounded-2xl p-4 overflow-hidden shadow-inner flex items-center justify-between h-36">
-                          <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 border-r-2 border-dashed border-white/80 z-10" />
-                          <div className="w-1/2 text-center relative z-20 space-y-1 pr-2">
-                            <span className="text-[9px] font-black text-cyan-200 uppercase tracking-widest block">PAREJA A</span>
-                            <p className="text-xs font-black text-white drop-shadow-md truncate">{p.parej1[0]}</p>
-                            <p className="text-xs font-black text-white drop-shadow-md truncate">{p.parej1[1]}</p>
+                      return (
+                        <div key={p.numero} className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4 space-y-3 shadow-xl">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> {p.nombre}
+                            </span>
                           </div>
-                          <div className="w-1/2 text-center relative z-20 space-y-1 pl-2">
-                            <span className="text-[9px] font-black text-cyan-200 uppercase tracking-widest block">PAREJA B</span>
-                            <p className="text-xs font-black text-white drop-shadow-md truncate">{p.pareja2[0]}</p>
-                            <p className="text-xs font-black text-white drop-shadow-md truncate">{p.pareja2[1]}</p>
+
+                          <div className="relative bg-[#174F8A] border-4 border-white rounded-2xl p-4 overflow-hidden shadow-inner flex items-center justify-between h-36">
+                            <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 border-r-2 border-dashed border-white/80 z-10" />
+                            <div className="w-1/2 text-center relative z-20 space-y-1 pr-2">
+                              <span className="text-[9px] font-black text-cyan-200 uppercase tracking-widest block">PAREJA A</span>
+                              <p className="text-xs font-black text-white drop-shadow-md truncate">{pareja1Actual[0]}</p>
+                              <p className="text-xs font-black text-white drop-shadow-md truncate">{pareja1Actual[1]}</p>
+                            </div>
+                            <div className="w-1/2 text-center relative z-20 space-y-1 pl-2">
+                              <span className="text-[9px] font-black text-cyan-200 uppercase tracking-widest block">PAREJA B</span>
+                              <p className="text-xs font-black text-white drop-shadow-md truncate">{p.pareja2[0]}</p>
+                              <p className="text-xs font-black text-white drop-shadow-md truncate">{p.pareja2[1]}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
@@ -530,7 +556,7 @@ export default function PadelApp() {
                           </div>
                           <div className="space-y-2 text-xs">
                             <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
-                              <span className="font-bold text-white">1. {miPerfil.nombre} & {inscritosMap[eventoSeleccionado.id] || 'Pareja'}</span>
+                              <span className="font-bold text-white">1. {miPerfil.nombre} & {parejaInscritaActual}</span>
                               <span className="text-cyan-300 font-mono font-bold">2 PJ • 6 pts</span>
                             </div>
                             <div className="flex justify-between items-center bg-[#112948] p-2.5 rounded-xl">
@@ -553,7 +579,7 @@ export default function PadelApp() {
                           <div className="bg-[#112948] p-3 rounded-xl border border-cyan-900 space-y-1">
                             <span className="text-[9px] text-amber-300 font-bold uppercase block">Semifinal 1</span>
                             <div className="flex justify-between font-bold text-white">
-                              <span>{miPerfil.nombre} & {inscritosMap[eventoSeleccionado.id] || 'Pareja'} vs Pareja C</span>
+                              <span>{miPerfil.nombre} & {parejaInscritaActual} vs Pareja C</span>
                               <span className="text-cyan-400 font-mono">Sáb 12:00</span>
                             </div>
                           </div>
