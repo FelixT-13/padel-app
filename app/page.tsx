@@ -14,8 +14,8 @@ const EVENTOS_INICIALES = [
     tipo: 'Pozo',
     fecha: 'Sábado, 11 Oct • 10:00h',
     club: 'Club Pádel Center',
-    plazas_totales: 16,
-    plazas_ocupadas: 12,
+    plazas_totales: 8,
+    plazas_ocupadas: 6,
     precioUnitario: 12,
   },
   {
@@ -24,8 +24,8 @@ const EVENTOS_INICIALES = [
     tipo: 'Torneo',
     fecha: '24-26 Oct • Cat. Abierta',
     club: 'Pádel Indoor Madrid',
-    plazas_totales: 12,
-    plazas_ocupadas: 8,
+    plazas_totales: 6,
+    plazas_ocupadas: 4,
     precioUnitario: 20,
   }
 ];
@@ -69,6 +69,7 @@ export default function PadelApp() {
   const [partidosEventoMap, setPartidosEventoMap] = useState<{[key: number]: any[]}>({});
   const [jugadoresSinParejaMap, setJugadoresSinParejaMap] = useState<{[key: number]: string[]}>({});
   const [parejasEventoMap, setParejasEventoMap] = useState<{[key: number]: string[][]}>({});
+  const [miInscripcionEventoMap, setMiInscripcionEventoMap] = useState<{[key: number]: { modo: 'pareja' | 'solo'; pareja: string[] | null }}>({});
   
   const [eventoRegistrandoId, setEventoRegistrandoId] = useState<number | null>(null);
   const [nombreParejaInput, setNombreParejaInput] = useState('');
@@ -92,8 +93,8 @@ export default function PadelApp() {
   const [nuevoPrecioEvento, setNuevoPrecioEvento] = useState('12');
 
   const [pistas, setPistas] = useState([
-    { numero: 1, nombre: 'Pista 1 • Central', parej1: ['Felix Gomez', 'Lidia Martin'], pareja2: ['Angel Ruiz', 'Rober Sanchez'] },
-    { numero: 2, nombre: 'Pista 2', parej1: ['Jugador 5', 'Jugador 6'], pareja2: ['Jugador 7', 'Jugador 8'] },
+    { numero: 1, nombre: 'Pista 1 • Central', pareja1: ['Felix Gomez', 'Lidia Martin'], pareja2: ['Angel Ruiz', 'Rober Sanchez'] },
+    { numero: 2, nombre: 'Pista 2', pareja1: ['Jugador 5', 'Jugador 6'], pareja2: ['Jugador 7', 'Jugador 8'] },
   ]);
 
   // Cierre admin
@@ -154,83 +155,123 @@ export default function PadelApp() {
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
-  const crearCalendarioTorneo = (eventoId: number, parejaA: string[], parejaB: string[]) => {
+  const crearCalendarioTorneo = (eventoId: number, parejas: string[][]) => {
+    const parejasReales = parejas.filter(p => p.length === 2);
+    if (parejasReales.length < 2) {
+      setPartidosEventoMap(prev => ({ ...prev, [eventoId]: [] }));
+      setEventoActivoId(eventoId);
+      return;
+    }
+    const parejaA = parejasReales[0];
+    const parejaB = parejasReales[1];
     const base = Date.now();
-    const rival2 = ['Rival grupo 2', 'Rival grupo 2'];
-    const rival3 = ['Rival grupo 3', 'Rival grupo 3'];
     const partidos = [
-      { id: base + 1, eventoId, fase: 'grupos', ronda: 'Jornada 1', nombre: 'Grupo A · Jornada 1', hora: '10:00h', parej1: parejaA, pareja2: parejaB, resultado: '' },
-      { id: base + 2, eventoId, fase: 'grupos', ronda: 'Jornada 2', nombre: 'Grupo A · Jornada 2', hora: '11:00h', parej1: parejaA, pareja2: rival2, resultado: '' },
-      { id: base + 3, eventoId, fase: 'grupos', ronda: 'Jornada 3', nombre: 'Grupo A · Jornada 3', hora: '12:00h', parej1: parejaA, pareja2: rival3, resultado: '' },
-      { id: base + 4, eventoId, fase: 'eliminatoria', ronda: 'Cuartos / Cruce', nombre: 'Eliminatoria · Cuartos / Cruce', hora: '13:30h', parej1: parejaA, pareja2: ['Clasificado grupo', 'Clasificado grupo'], resultado: '' },
+      { id: base + 1, eventoId, fase: 'grupos', ronda: 'Jornada 1', nombre: 'Grupo A · Jornada 1', hora: '10:00h', pareja1: parejaA, pareja2: parejaB, resultado: '' },
+      ...(parejasReales[2] ? [{ id: base + 2, eventoId, fase: 'grupos', ronda: 'Jornada 2', nombre: 'Grupo A · Jornada 2', hora: '11:00h', pareja1: parejaA, pareja2: parejasReales[2], resultado: '' }] : []),
+      ...(parejasReales[3] ? [{ id: base + 3, eventoId, fase: 'grupos', ronda: 'Jornada 3', nombre: 'Grupo A · Jornada 3', hora: '12:00h', pareja1: parejaA, pareja2: parejasReales[3], resultado: '' }] : []),
+      ...(parejasReales.length >= 4 ? [{ id: base + 4, eventoId, fase: 'eliminatoria', ronda: 'Cuartos / Cruce', nombre: 'Eliminatoria · Cruce', hora: '13:30h', pareja1: parejaA, pareja2: parejaB, resultado: '' }] : []),
     ];
     setPartidosEventoMap(prev => ({ ...prev, [eventoId]: partidos }));
     setEventoActivoId(eventoId);
   };
 
+
   const generarPartidosTorneo = (eventoId: number, parejaA: string, parejaB: string) => {
-    crearCalendarioTorneo(eventoId, [parejaA, parejaB], ['Angel Ruiz', 'Rober Sanchez']);
+    const parejas = parejasEventoMap[eventoId] || [[parejaA, parejaB]];
+    crearCalendarioTorneo(eventoId, parejas);
   };
 
   const emparejarJugadoresSolos = (eventoId: number, jugadores: string[]) => {
-    if (jugadores.length < 2) return;
+    const evento = eventos.find(ev => ev.id === eventoId);
     const parejasActuales = parejasEventoMap[eventoId] || [];
-    const nuevasParejas = [...parejasActuales];
-    // Quienes se apuntan solos también se emparejan mediante sorteo aleatorio.
     const pendientes = [...jugadores];
     for (let i = pendientes.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pendientes[i], pendientes[j]] = [pendientes[j], pendientes[i]];
     }
+    const nuevasParejas = [...parejasActuales];
     while (pendientes.length >= 2) nuevasParejas.push([pendientes.shift()!, pendientes.shift()!]);
     setParejasEventoMap(prev => ({ ...prev, [eventoId]: nuevasParejas }));
     setJugadoresSinParejaMap(prev => ({ ...prev, [eventoId]: pendientes }));
-    const evento = eventos.find(ev => ev.id === eventoId);
-    if (evento?.tipo === 'Torneo' && nuevasParejas.length >= 2) {
-      crearCalendarioTorneo(eventoId, nuevasParejas[nuevasParejas.length - 2], nuevasParejas[nuevasParejas.length - 1]);
-    } else if (evento?.tipo === 'Pozo' && nuevasParejas.length >= 1) {
-      const pareja = nuevasParejas[nuevasParejas.length - 1];
-      setPartidosEventoMap(prev => ({
-        ...prev,
-        [eventoId]: [{ id: Date.now(), eventoId, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: pareja, pareja2: ['Pendiente de sorteo', 'Pendiente de sorteo'], resultado: '' }]
-      }));
+    const parejasNuevas = nuevasParejas.length - parejasActuales.length;
+    if (parejasNuevas > 0) setEventos(prev => prev.map(ev => ev.id === eventoId ? { ...ev, plazas_ocupadas: Math.min(ev.plazas_totales, ev.plazas_ocupadas + parejasNuevas) } : ev));
+    if (evento?.tipo === 'Pozo') generarSorteoPozo(eventoId, nuevasParejas);
+    else if (evento?.tipo === 'Torneo') crearCalendarioTorneo(eventoId, nuevasParejas);
+  };
+
+
+  const generarSorteoPozo = (eventoId: number, parejasEntrada?: string[][]) => {
+    const parejasBase = (parejasEntrada || parejasEventoMap[eventoId] || []).filter(p => p.length === 2);
+    if (parejasBase.length === 0) {
+      setPartidosEventoMap(prev => ({ ...prev, [eventoId]: [] }));
       setEventoActivoId(eventoId);
+      return;
     }
+    const parejas = parejasBase.map(p => [...p]);
+    for (let i = parejas.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [parejas[i], parejas[j]] = [parejas[j], parejas[i]];
+    }
+    const partidos: any[] = [];
+    for (let i = 0; i < parejas.length; i += 2) {
+      const pista = Math.floor(i / 2) + 1;
+      partidos.push({
+        id: Date.now() + i,
+        eventoId,
+        fase: 'pozo',
+        ronda: `Pista ${pista}`,
+        nombre: parejas[i + 1] ? `Pista ${pista}` : `Pista ${pista} · Descanso`,
+        hora: `${10 + Math.floor(i / 2)}:00h`,
+        pareja1: ordenarParejaPorLado(parejas[i]),
+        pareja2: parejas[i + 1] ? ordenarParejaPorLado(parejas[i + 1]) : ['DESCANSO', 'DESCANSO'],
+        resultado: ''
+      });
+    }
+    setPartidosEventoMap(prev => ({ ...prev, [eventoId]: partidos }));
+    setEventoActivoId(eventoId);
   };
 
   const handleConfirmarInscripcion = (eventoId: number) => {
-    const miJugador = ranking.find((j) => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
+    const miJugador = ranking.find(j => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
     if (!miJugador) return;
     const parejaNombre = nombreParejaInput.trim();
     const evento = eventos.find(ev => ev.id === eventoId);
-
+    if (!evento) return;
+    if ((participantesEventoMap[eventoId] || []).includes(miJugador.id)) {
+      setEventoActivoId(eventoId); setActiveTab('pistas'); return;
+    }
     setLadoPorJugador(prev => ({ ...prev, [miJugador.id]: ladoInscripcion }));
     setRanking(prev => prev.map(j => j.id === miJugador.id ? { ...j, lado: ladoInscripcion } : j));
-
     if (modoInscripcion === 'solo') {
-      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: Array.from(new Set([...(prev[eventoId] || []), miJugador.id])) }));
+      const participantes = Array.from(new Set([...(participantesEventoMap[eventoId] || []), miJugador.id]));
+      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: participantes }));
       const pendientes = Array.from(new Set([...(jugadoresSinParejaMap[eventoId] || []), miPerfil.nombreCompleto]));
       emparejarJugadoresSolos(eventoId, pendientes);
+      setMiInscripcionEventoMap(prev => ({ ...prev, [eventoId]: { modo: 'solo', pareja: null } }));
       setInscritosMap(prev => ({ ...prev, [eventoId]: '' }));
       setEventoRegistrandoId(null);
-      setMensajeExito(pendientes.length >= 2 ? '¡Te has apuntado sin pareja! Se ha formado una pareja automáticamente. 🏓' : '¡Te has apuntado sin pareja! Quedas en la lista de jugadores sin pareja. Cuando haya otro, se formará la pareja automáticamente.');
+      setMensajeExito(pendientes.length >= 2 ? '¡Pareja formada! Se ha hecho el sorteo aleatorio. 🏓' : '¡Apuntado! Estás esperando pareja.');
     } else {
-      if (!parejaNombre) return;
-      const parejaJugador = ranking.find((j) => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
-      setLadoPorJugador(prev => ({ ...prev, ...(parejaJugador ? { [parejaJugador.id]: ladoParejaInscripcion } : {}) }));
-      setRanking(prev => prev.map(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase() ? { ...j, lado: ladoParejaInscripcion } : j));
-      setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
-      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: Array.from(new Set([...(prev[eventoId] || []), miJugador.id, parejaJugador?.id].filter(Boolean) as string[])) }));
-      setParejasEventoMap(prev => ({ ...prev, [eventoId]: [...(prev[eventoId] || []), [miPerfil.nombreCompleto, parejaNombre]] }));
-      if (evento?.tipo === 'Torneo') crearCalendarioTorneo(eventoId, [miPerfil.nombreCompleto, parejaNombre], ['Angel Ruiz', 'Rober Sanchez']);
-      else setPartidosEventoMap(prev => ({ ...prev, [eventoId]: [{ id: Date.now(), eventoId, fase: 'pozo', ronda: 'Pista 1', nombre: 'Pozo · Pista 1', hora: '10:00h', parej1: [miPerfil.nombreCompleto, parejaNombre], pareja2: ['Pendiente de sorteo', 'Pendiente de sorteo'], resultado: '' }] }));
+      if (!parejaNombre) { setMensajeExito('Escribe el nombre de tu pareja para continuar.'); setTimeout(() => setMensajeExito(''), 2500); return; }
+      const parejaJugador = ranking.find(j => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
+      if (!parejaJugador) { setMensajeExito('No encuentro ese jugador en Padel Arena.'); setTimeout(() => setMensajeExito(''), 2500); return; }
+      if (parejaJugador.id === miJugador.id) { setMensajeExito('No puedes seleccionarte como pareja.'); setTimeout(() => setMensajeExito(''), 2500); return; }
+      setLadoPorJugador(prev => ({ ...prev, [parejaJugador.id]: ladoParejaInscripcion }));
+      setRanking(prev => prev.map(j => j.id === parejaJugador.id ? { ...j, lado: ladoParejaInscripcion } : j));
+      const participantes = Array.from(new Set([...(participantesEventoMap[eventoId] || []), miJugador.id, parejaJugador.id]));
+      const nuevasParejas = [...(parejasEventoMap[eventoId] || []), [miPerfil.nombreCompleto, parejaJugador.nombre]];
+      setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: participantes }));
+      setParejasEventoMap(prev => ({ ...prev, [eventoId]: nuevasParejas }));
+      setMiInscripcionEventoMap(prev => ({ ...prev, [eventoId]: { modo: 'pareja', pareja: [miPerfil.nombreCompleto, parejaJugador.nombre] } }));
+      setInscritosMap(prev => ({ ...prev, [eventoId]: parejaJugador.nombre }));
+      setEventos(prev => prev.map(ev => ev.id === eventoId ? { ...ev, plazas_ocupadas: Math.min(ev.plazas_totales, ev.plazas_ocupadas + 1) } : ev));
+      if (evento.tipo === 'Pozo') generarSorteoPozo(eventoId, nuevasParejas); else crearCalendarioTorneo(eventoId, nuevasParejas);
       setEventoActivoId(eventoId);
-      setMensajeExito(`¡Inscripción confirmada! ${miPerfil.nombreCompleto}: ${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ${parejaNombre}: ${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`);
+      setMensajeExito(`¡Inscripción confirmada! ${miPerfil.nombreCompleto} · ${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ${parejaJugador.nombre} · ${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`);
     }
-    setActiveTab('pistas');
-    setNombreParejaInput('');
-    setTimeout(() => setMensajeExito(''), 3500);
+    setActiveTab('pistas'); setNombreParejaInput(''); setTimeout(() => setMensajeExito(''), 3500);
   };
+
 
   const handleComprarFantasy = (id: string) => {
     if (fantasyEquipo.length >= 2 || fantasyEquipo.includes(id)) return;
@@ -250,15 +291,25 @@ export default function PadelApp() {
   };
 
   const handleCancelarInscripcion = (eventoId: number) => {
-    const copia = { ...inscritosMap };
-    delete copia[eventoId];
-    setInscritosMap(copia);
-    setParticipantesEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
-    setJugadoresSinParejaMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
-    setParejasEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
-    setPartidosEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
+    const miJugador = ranking.find(j => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
+    const inscripcion = miInscripcionEventoMap[eventoId];
+    if (!miJugador || !inscripcion) return;
+    const parejaARemover = inscripcion.pareja;
+    const nuevasParejas = parejaARemover ? (parejasEventoMap[eventoId] || []).filter(p => !(p.length === 2 && p.every(nombre => parejaARemover.includes(nombre)))) : (parejasEventoMap[eventoId] || []);
+    setParejasEventoMap(prev => ({ ...prev, [eventoId]: nuevasParejas }));
+    setParticipantesEventoMap(prev => ({ ...prev, [eventoId]: (prev[eventoId] || []).filter(id => {
+      if (!inscripcion.pareja) return id !== miJugador.id;
+      const jugador = ranking.find(j => j.id === id);
+      return jugador ? !inscripcion.pareja.includes(jugador.nombre) : true;
+    }) }));
+    setJugadoresSinParejaMap(prev => ({ ...prev, [eventoId]: (prev[eventoId] || []).filter(n => n !== miPerfil.nombreCompleto) }));
+    setPartidosEventoMap(prev => ({ ...prev, [eventoId]: (prev[eventoId] || []).filter(p => ![...p.pareja1, ...p.pareja2].includes(miPerfil.nombreCompleto)) }));
+    setMiInscripcionEventoMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
+    setInscritosMap(prev => { const next = { ...prev }; delete next[eventoId]; return next; });
+    if (inscripcion.pareja) setEventos(prev => prev.map(ev => ev.id === eventoId ? { ...ev, plazas_ocupadas: Math.max(0, ev.plazas_ocupadas - 1) } : ev));
     if (eventoActivoId === eventoId) setEventoActivoId(null);
   };
+
 
   const calcularPuntosPozo = (pista: number, gano: boolean) => {
     const base = 100 - (pista - 1) * 25;
@@ -322,7 +373,7 @@ export default function PadelApp() {
       tipo: nuevoTipoEvento,
       fecha: 'Próxima fecha • Por definir',
       club: nuevoClubEvento,
-      plazas_totales: 16,
+      plazas_totales: 8,
       plazas_ocupadas: 0,
       precioUnitario: parseInt(nuevoPrecioEvento) || 10,
     };
@@ -349,11 +400,13 @@ export default function PadelApp() {
 
   const ordenarParejaPorLado = (pareja: string[]) => {
     const copia = [...pareja];
-    return copia.sort((a, b) => {
-      const la = ladoDeJugador(a);
-      const lb = ladoDeJugador(b);
-      return la === 'derecha' ? -1 : lb === 'derecha' ? 1 : 0;
-    });
+    if (copia.length !== 2) return copia;
+    const [a, b] = copia;
+    const la = ladoDeJugador(a);
+    const lb = ladoDeJugador(b);
+    if (la === 'derecha' && lb === 'reves') return [a, b];
+    if (la === 'reves' && lb === 'derecha') return [b, a];
+    return copia;
   };
 
   const clasePosicionPista = (indice: number) => {
@@ -370,17 +423,13 @@ export default function PadelApp() {
 
   // Sorteo siempre aleatorio: ni el nivel ni el lado condicionan el reparto inicial.
   const handleMezclarPistas = () => {
-    const nombres = ranking.map((r) => r.nombre).filter(n => n !== miPerfil.nombreCompleto && n !== parejaInscritaActual);
-    const mezclados = [...nombres];
-    for (let i = mezclados.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [mezclados[i], mezclados[j]] = [mezclados[j], mezclados[i]];
-    }
-
-    setPistas([
-      { numero: 1, nombre: 'Pista 1 • Central', parej1: ordenarParejaPorLado([miPerfil.nombreCompleto || 'Felix Gomez', parejaInscritaActual]), pareja2: ordenarParejaPorLado([mezclados[0] || 'Angel Ruiz', mezclados[1] || 'Rober Sanchez']) },
-      { numero: 2, nombre: 'Pista 2', parej1: ordenarParejaPorLado([mezclados[2] || 'Jugador A', mezclados[3] || 'Jugador B']), pareja2: ordenarParejaPorLado([mezclados[4] || 'Jugador C', mezclados[5] || 'Jugador D']) },
-    ]);
+    if (!eventoActivoId) return;
+    const evento = eventos.find(ev => ev.id === eventoActivoId);
+    if (!evento) return;
+    if (evento.tipo === 'Pozo') generarSorteoPozo(evento.id);
+    else crearCalendarioTorneo(evento.id, parejasEventoMap[evento.id] || []);
+    setMensajeExito('Sorteo realizado al azar. El lado no influye en el reparto.');
+    setTimeout(() => setMensajeExito(''), 2500);
   };
 
   const compartirEvento = (evento: any) => {
@@ -411,7 +460,7 @@ export default function PadelApp() {
   const partidosDelEvento = eventoActivoId ? (partidosEventoMap[eventoActivoId] || []) : [];
   const partidosVisibles = esOrganizador
     ? partidosDelEvento
-    : partidosDelEvento.filter((p) => [...p.parej1, ...p.pareja2].includes(miPerfil.nombreCompleto));
+    : partidosDelEvento.filter((p) => [...p.pareja1, ...p.pareja2].includes(miPerfil.nombreCompleto));
 
   const rankingOrdenado = [...ranking].sort((a, b) => {
     if (tipoRanking === 'pozos') {
@@ -628,9 +677,9 @@ export default function PadelApp() {
               ) : (
                 <div className="space-y-3">
                   {partidosVisibles.map((p, matchIndex) => {
-                    const jugadores = [p.parej1[0], p.parej1[1], p.pareja2[0], p.pareja2[1]];
+                    const jugadores = [p.pareja1[0], p.pareja1[1], p.pareja2[0], p.pareja2[1]];
                     return (
-                      <div key={p.numero} className="space-y-2">
+                      <div key={p.id} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase text-slate-500">{p.nombre}</span>
                           <span className="text-[9px] font-bold text-emerald-700">Partido {matchIndex + 1}</span>
@@ -654,7 +703,7 @@ export default function PadelApp() {
                   })}
                 </div>
               )}
-              {partidosVisibles.length > 0 && <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-center"><span className="text-[9px] font-bold uppercase text-slate-400">Jugador seleccionado</span><b className="mt-0.5 block text-sm">{[...(partidosVisibles[0]?.parej1 || []), ...(partidosVisibles[0]?.pareja2 || [])][jugadorSeleccionadoPista] || miPerfil.nombreCompleto}</b><p className="text-[10px] text-slate-500">Lado: <strong>{ladoDeJugador([...(partidosVisibles[0]?.parej1 || []), ...(partidosVisibles[0]?.pareja2 || [])][jugadorSeleccionadoPista] || miPerfil.nombreCompleto)}</strong></p></div>}
+              {partidosVisibles.length > 0 && <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-center"><span className="text-[9px] font-bold uppercase text-slate-400">Jugador seleccionado</span><b className="mt-0.5 block text-sm">{[...(partidosVisibles[0]?.pareja1 || []), ...(partidosVisibles[0]?.pareja2 || [])][jugadorSeleccionadoPista] || miPerfil.nombreCompleto}</b><p className="text-[10px] text-slate-500">Lado: <strong>{ladoDeJugador([...(partidosVisibles[0]?.pareja1 || []), ...(partidosVisibles[0]?.pareja2 || [])][jugadorSeleccionadoPista] || miPerfil.nombreCompleto)}</strong></p></div>}
             </section>
 
             {!eventoActivoId || !eventoSeleccionado ? (
@@ -700,10 +749,10 @@ export default function PadelApp() {
                     </div>
 
                     {partidosVisibles.map((p) => {
-                      const pareja1Actual = (p.numero === 1) ? [miPerfil.nombreCompleto, parejaInscritaActual] : p.parej1;
+                      const pareja1Actual = (p.id === partidosVisibles[0]?.id) ? [miPerfil.nombreCompleto, parejaInscritaActual] : p.pareja1;
 
                       return (
-                        <div key={p.numero} className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4 space-y-3 shadow-xl">
+                        <div key={p.id} className="bg-white/90 border-2 border-emerald-200 rounded-3xl p-4 space-y-3 shadow-xl">
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                               <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> {p.nombre}
@@ -754,7 +803,7 @@ export default function PadelApp() {
                         {partidosVisibles.map((p, idx) => (
                           <div key={p.id || idx} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                             <div className="flex items-center justify-between gap-2"><span className="text-[9px] font-black uppercase text-emerald-700">{p.fase === 'grupos' ? `Grupo · ${p.ronda}` : 'Eliminatoria · ' + p.ronda}</span><span className="text-[9px] font-bold text-slate-500">{p.hora}</span></div>
-                            <div className="mt-2 flex items-center justify-between gap-2"><div className="min-w-0"><b className="block text-xs text-slate-900 truncate">{p.parej1[0]} / {p.parej1[1]}</b><span className="text-[9px] text-slate-500">{etiquetaLado(ladoDeJugador(p.parej1[0]))} · {etiquetaLado(ladoDeJugador(p.parej1[1]))}</span></div><span className="text-[10px] font-black text-slate-400">VS</span><div className="min-w-0 text-right"><b className="block text-xs text-slate-900 truncate">{p.pareja2[0]} / {p.pareja2[1]}</b><span className="text-[9px] text-slate-500">{etiquetaLado(ladoDeJugador(p.pareja2[0]))} · {etiquetaLado(ladoDeJugador(p.pareja2[1]))}</span></div></div>
+                            <div className="mt-2 flex items-center justify-between gap-2"><div className="min-w-0"><b className="block text-xs text-slate-900 truncate">{p.pareja1[0]} / {p.pareja1[1]}</b><span className="text-[9px] text-slate-500">{etiquetaLado(ladoDeJugador(p.pareja1[0]))} · {etiquetaLado(ladoDeJugador(p.pareja1[1]))}</span></div><span className="text-[10px] font-black text-slate-400">VS</span><div className="min-w-0 text-right"><b className="block text-xs text-slate-900 truncate">{p.pareja2[0]} / {p.pareja2[1]}</b><span className="text-[9px] text-slate-500">{etiquetaLado(ladoDeJugador(p.pareja2[0]))} · {etiquetaLado(ladoDeJugador(p.pareja2[1]))}</span></div></div>
                           </div>
                         ))}
                       </div>
@@ -763,6 +812,79 @@ export default function PadelApp() {
                 )}
 
               </div>
+            )}
+          </div>
+        )}
+
+        {/* PESTAÑA MIS PARTIDOS */}
+        {activeTab === 'pistas' && (
+          <div className="space-y-5 animate-in fade-in duration-300">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Mi competición</p>
+                <h2 className="mt-1 text-2xl font-black text-slate-900">Mis partidos</h2>
+                <p className="mt-1 text-xs text-slate-500">Solo ves los partidos en los que participas.</p>
+              </div>
+              {eventoActivoId && <button onClick={() => setActiveTab('eventos')} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-600">Cambiar evento</button>}
+            </div>
+            {!eventoActivoId || !eventoSeleccionado ? (
+              <div className="rounded-3xl border border-emerald-200 bg-white p-7 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">🏟️</div>
+                <h3 className="mt-3 text-base font-black text-slate-900">Todavía no tienes un evento seleccionado</h3>
+                <p className="mt-1 text-xs text-slate-500">Apúntate a un evento y aquí aparecerán tus pistas, pareja, rivales y horarios.</p>
+                <button onClick={() => setActiveTab('eventos')} className="mt-4 rounded-xl bg-emerald-500 px-4 py-2.5 text-[10px] font-black uppercase text-white shadow-md">Ver eventos</button>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className={`inline-flex rounded-full px-2 py-1 text-[9px] font-black uppercase ${eventoSeleccionado.tipo === 'Pozo' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{eventoSeleccionado.tipo}</span>
+                      <h3 className="mt-2 text-lg font-black text-slate-900">{eventoSeleccionado.titulo}</h3>
+                      <p className="mt-1 text-[10px] text-slate-500">{eventoSeleccionado.fecha} · {eventoSeleccionado.club}</p>
+                    </div>
+                    {esOrganizador && <button onClick={handleMezclarPistas} className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-black uppercase text-white"><Shuffle className="h-3.5 w-3.5" /> Sortear</button>}
+                  </div>
+                </div>
+                {partidosVisibles.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-6 text-center">
+                    <div className="text-3xl">⏳</div>
+                    <h3 className="mt-2 text-sm font-black text-slate-900">Pendiente de sorteo</h3>
+                    <p className="mt-1 text-[10px] text-slate-600">Tu inscripción está registrada. Cuando haya suficientes parejas, el organizador podrá realizar el sorteo.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {partidosVisibles.map((p, matchIndex) => {
+                      const jugadores = [p.pareja1?.[0], p.pareja1?.[1], p.pareja2?.[0], p.pareja2?.[1]].filter(Boolean);
+                      return (
+                        <article key={p.id} className="rounded-3xl border-2 border-emerald-200 bg-white p-4 shadow-lg">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <div><span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">{p.fase === 'pozo' ? 'Pozo' : p.fase === 'grupos' ? 'Fase de grupos' : 'Eliminatoria'}</span><h3 className="mt-0.5 text-sm font-black text-slate-900">{p.nombre}</h3></div>
+                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black text-slate-600">{p.hora}</span>
+                          </div>
+                          <div className="relative mx-auto aspect-[1.65/1] max-w-[520px] overflow-hidden rounded-[22px] border-[7px] border-slate-300 bg-emerald-600 shadow-inner">
+                            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px)] bg-[size:12px_12px]" />
+                            <div className="absolute inset-[7%] rounded-lg border-2 border-white/95" />
+                            <div className="absolute left-1/2 top-[7%] bottom-[7%] border-l-2 border-white/95" />
+                            <div className="absolute left-[7%] right-[7%] top-1/2 border-t-2 border-white/95" />
+                            <div className="absolute left-0 right-0 top-0 h-2 bg-slate-200/70 border-b border-slate-400/70" />
+                            <div className="absolute left-0 right-0 bottom-0 h-2 bg-slate-200/70 border-t border-slate-400/70" />
+                            <span className="absolute left-2 top-1 text-[7px] font-black tracking-widest text-white/80">PADEL · CRISTAL + MALLA</span>
+                            {jugadores.map((name: string, i: number) => (
+                              <button key={`${p.id}-${name}-${i}`} type="button" onClick={() => setJugadorSeleccionadoPista(i)} className={`absolute ${clasePosicionPista(i)} -translate-y-1/2 rounded-xl border-2 px-2.5 py-1.5 text-[8px] font-black shadow-lg transition-all ${jugadorSeleccionadoPista === i ? 'scale-110 border-lime-300 bg-white text-emerald-700' : 'border-white/90 bg-white/95 text-slate-900'}`}><span className="block max-w-[92px] truncate">{name}</span><span className="block text-[7px] text-emerald-700">{etiquetaLado(ladoDeJugador(name))}</span></button>
+                            ))}
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <div className="rounded-2xl bg-emerald-50 p-3"><span className="block text-[8px] font-black uppercase text-emerald-700">Pareja A</span><b className="mt-1 block text-[10px] text-slate-900">{p.pareja1?.[0]} · {p.pareja1?.[1]}</b></div>
+                            <div className="rounded-2xl bg-slate-50 p-3"><span className="block text-[8px] font-black uppercase text-slate-500">Pareja B</span><b className="mt-1 block text-[10px] text-slate-900">{p.pareja2?.[0]} · {p.pareja2?.[1]}</b></div>
+                          </div>
+                          <p className="mt-2 text-center text-[9px] font-bold uppercase tracking-wide text-slate-400">Partido {matchIndex + 1} · Los jugadores se muestran en su posición</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -793,7 +915,7 @@ export default function PadelApp() {
                       <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evento.club)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 font-semibold text-slate-800 underline decoration-emerald-400 underline-offset-2"><MapPin className="h-4 w-4 shrink-0 text-emerald-600" /><span>{evento.club}</span></a>
                     </div>
                     <div className="mt-4 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} plazas ocupadas</span>
+                      <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} parejas inscritas</span>
                       {inscrito ? (
                         <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
                       ) : (
@@ -804,7 +926,7 @@ export default function PadelApp() {
                       <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 space-y-3">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Inscripción al {evento.tipo}</p>
-                          <p className="mt-1 text-[10px] text-slate-600">Indica el lado de cada jugador para que el organizador pueda colocarlos correctamente en pista.</p>
+                          <p className="mt-1 text-[10px] text-slate-600">El lado es informativo para colocar a cada jugador en pista. El sorteo siempre es aleatorio.</p>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
