@@ -68,6 +68,8 @@ export default function PadelApp() {
   
   const [eventoRegistrandoId, setEventoRegistrandoId] = useState<number | null>(null);
   const [nombreParejaInput, setNombreParejaInput] = useState('');
+  const [ladoInscripcion, setLadoInscripcion] = useState<'derecha' | 'reves'>('derecha');
+  const [ladoParejaInscripcion, setLadoParejaInscripcion] = useState<'derecha' | 'reves'>('reves');
 
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
@@ -163,6 +165,15 @@ export default function PadelApp() {
     const parejaNombre = nombreParejaInput.trim();
     if (!parejaNombre) return;
 
+    setMiPerfil(prev => ({ ...prev, lado: ladoInscripcion }));
+    setRanking(prev => prev.map(j =>
+      j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase()
+        ? { ...j, lado: ladoInscripcion }
+        : j.nombre.toLowerCase() === parejaNombre.toLowerCase()
+          ? { ...j, lado: ladoParejaInscripcion }
+          : j
+    ));
+
     setInscritosMap(prev => ({ ...prev, [eventoId]: parejaNombre }));
     const parejaJugador = ranking.find((j) => j.nombre.toLowerCase() === parejaNombre.toLowerCase());
     const miJugador = ranking.find((j) => j.nombre.toLowerCase() === miPerfil.nombreCompleto.toLowerCase());
@@ -172,8 +183,25 @@ export default function PadelApp() {
     }));
     setEventoRegistrandoId(null);
     setNombreParejaInput('');
-    setMensajeExito(`¡Inscripción confirmada con ${parejaNombre}!`);
-    setTimeout(() => setMensajeExito(''), 3000);
+    setMensajeExito(`¡Inscripción confirmada! ${miPerfil.nombreCompleto}: ${ladoInscripcion === 'derecha' ? 'Derecha' : 'Revés'} · ${parejaNombre}: ${ladoParejaInscripcion === 'derecha' ? 'Derecha' : 'Revés'}`);
+    setTimeout(() => setMensajeExito(''), 3500);
+  };
+
+  const handleComprarFantasy = (id: string) => {
+    if (fantasyEquipo.length >= 2 || fantasyEquipo.includes(id)) return;
+    const jugador = fantasyJugadores.find(j => j.id === id);
+    if (!jugador) return;
+    if (fantasyGastado + jugador.valor > fantasyPresupuesto) {
+      setMensajeExito('No tienes saldo suficiente para fichar a este jugador.');
+      setTimeout(() => setMensajeExito(''), 2500);
+      return;
+    }
+    setFantasyEquipo(prev => [...prev, id]);
+  };
+
+  const handleVenderFantasy = (id: string) => {
+    if (!fantasyEquipo.includes(id)) return;
+    setFantasyEquipo(prev => prev.filter(playerId => playerId !== id));
   };
 
   const handleCancelarInscripcion = (eventoId: number) => {
@@ -330,6 +358,7 @@ export default function PadelApp() {
     }));
   const fantasySeleccionados = fantasyJugadores.filter(j => fantasyEquipo.includes(j.id));
   const fantasyGastado = fantasySeleccionados.reduce((sum, j) => sum + j.valor, 0);
+  const fantasySaldo = fantasyPresupuesto - fantasyGastado;
   const fantasyPts = fantasySeleccionados.reduce((sum, j) => sum + j.fantasyPts, 0);
   const partidosVisibles = pistas.filter((p) => {
     const nombres = [...p.parej1, ...p.pareja2];
@@ -762,8 +791,39 @@ export default function PadelApp() {
                     </div>
                     <div className="mt-4 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} plazas ocupadas</span>
-                      <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white">{inscrito ? 'Ver mis partidos' : 'Ver evento'}</button>
+                      {inscrito ? (
+                        <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
+                      ) : (
+                        <button onClick={() => { setEventoRegistrandoId(evento.id); setLadoInscripcion(miPerfil.lado); setLadoParejaInscripcion(miPerfil.lado === 'derecha' ? 'reves' : 'derecha'); }} className="rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white shadow-md">Apuntarme</button>
+                      )}
                     </div>
+                    {eventoRegistrandoId === evento.id && (
+                      <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 space-y-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Inscripción al {evento.tipo}</p>
+                          <p className="mt-1 text-[10px] text-slate-600">Indica el lado de cada jugador para que el organizador pueda colocarlos correctamente en pista.</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="mb-1 block text-[9px] font-black uppercase text-slate-500">Tu lado</label>
+                            <select value={ladoInscripcion} onChange={e => setLadoInscripcion(e.target.value as 'derecha' | 'reves')} className="w-full rounded-xl border border-slate-200 bg-white p-2 text-xs font-bold text-slate-900">
+                              <option value="derecha">Derecha</option><option value="reves">Revés</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[9px] font-black uppercase text-slate-500">Lado pareja</label>
+                            <select value={ladoParejaInscripcion} onChange={e => setLadoParejaInscripcion(e.target.value as 'derecha' | 'reves')} className="w-full rounded-xl border border-slate-200 bg-white p-2 text-xs font-bold text-slate-900">
+                              <option value="derecha">Derecha</option><option value="reves">Revés</option>
+                            </select>
+                          </div>
+                        </div>
+                        <input value={nombreParejaInput} onChange={e => setNombreParejaInput(e.target.value)} placeholder="Nombre de tu pareja" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-semibold text-slate-900 placeholder:text-slate-400" />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleConfirmarInscripcion(evento.id)} className="flex-1 rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black uppercase text-white">Confirmar inscripción</button>
+                          <button onClick={() => { setEventoRegistrandoId(null); setNombreParejaInput(''); }} className="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-600 border border-slate-200">Cancelar</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
@@ -849,20 +909,29 @@ export default function PadelApp() {
         {/* PESTAÑA FANTASY */}
         {activeTab === 'fantasy' && (
           <div className="space-y-5 animate-in fade-in duration-300">
-            <div className="rounded-3xl bg-gradient-to-r from-slate-900 to-emerald-900 p-5 text-white shadow-xl">
-              <div className="flex items-center justify-between"><div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-300">Fantasy Padel</span><h2 className="mt-1 text-2xl font-black">Tu equipo de ensueño</h2></div><div className="text-right"><span className="block text-2xl font-black">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-white/60">puntos por resultados</span></div></div>
-              <div className="mt-4 flex justify-between text-xs font-bold"><span>Presupuesto</span><span>{fantasyGastado.toFixed(1)} / {fantasyPresupuesto}M</span></div>
-              <div className="mt-2 h-2 rounded-full bg-white/15 overflow-hidden"><div className="h-full rounded-full bg-lime-300" style={{width: `${Math.min(100, fantasyGastado / fantasyPresupuesto * 100)}%`}} /></div>
+            <div className="rounded-3xl bg-white border border-emerald-200 p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Fantasy Padel</span><h2 className="mt-1 text-2xl font-black text-slate-900">Fíchalos. Véndelos. Compite.</h2><p className="mt-1 text-xs text-slate-500">Tu equipo tiene solo 2 jugadores. Compra con tu presupuesto y vende para recuperar saldo.</p></div>
+                <div className="text-right shrink-0"><span className="block text-2xl font-black text-emerald-600">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-slate-400">pts Fantasy</span></div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-2xl bg-slate-50 p-3"><span className="block text-[9px] font-black uppercase text-slate-400">Saldo disponible</span><b className="mt-1 block text-lg text-slate-900">{fantasySaldo.toFixed(1)}M</b></div>
+                <div className="rounded-2xl bg-emerald-50 p-3"><span className="block text-[9px] font-black uppercase text-emerald-600">Plazas de equipo</span><b className="mt-1 block text-lg text-emerald-800">{fantasyEquipo.length}/2</b></div>
+              </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3"><h3 className="font-black">Mi equipo</h3><span className="text-[10px] font-bold text-slate-500">4 jugadores</span></div>
-              <div className="space-y-2">{fantasySeleccionados.map(j => <div key={j.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"><div><b className="text-xs">{j.nombre}</b><span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">Nivel {j.nivel.toFixed(1)}</span></div><div className="text-right"><b className="block text-xs">{j.fantasyPts} pts</b><span className="text-[9px] text-slate-400">{j.valor}M</span></div></div>)}</div>
+              <div className="flex items-center justify-between mb-3"><div><h3 className="font-black text-slate-900">Mi equipo</h3><p className="text-[10px] text-slate-500">Compra 2 jugadores para competir esta jornada.</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-600">{fantasyEquipo.length}/2</span></div>
+              {fantasySeleccionados.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-center"><div className="text-2xl">🎾</div><p className="mt-1 text-xs font-black text-slate-800">Aún no tienes jugadores</p><p className="text-[10px] text-slate-500">Fícha jugadores de eventos en los que ya participan.</p></div>
+              ) : (
+                <div className="space-y-2">{fantasySeleccionados.map(j => <div key={j.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"><div><b className="block text-xs text-slate-900">{j.nombre}</b><span className="text-[9px] font-bold text-slate-500">{j.lado === 'derecha' ? 'Derecha' : 'Revés'} · {j.fantasyPts} pts</span></div><div className="flex items-center gap-2"><b className="text-xs text-emerald-700">{j.valor}M</b><button onClick={() => handleVenderFantasy(j.id)} className="rounded-lg bg-white border border-slate-200 px-2 py-1 text-[9px] font-black uppercase text-slate-600 hover:border-red-200 hover:text-red-600">Vender</button></div></div>)}</div>
+              )}
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="font-black">Jugadores disponibles</h3><p className="mt-1 text-[10px] text-slate-500">Solo aparecen jugadores que ya han participado en eventos. Cada resultado que registra el organizador suma automáticamente a su Fantasy.</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">{fantasyJugadores.map(j => { const elegido=fantasyEquipo.includes(j.id); const puede=fantasyGastado-j.valor < fantasyPresupuesto; return <button key={j.id} onClick={() => setFantasyEquipo(prev => elegido ? prev.filter(id => id!==j.id) : (prev.length<4 && puede ? [...prev,j.id] : prev))} className={`rounded-2xl border p-3 text-left transition ${elegido ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:bg-white'}`}><div className="flex justify-between gap-2"><div><b className="text-xs truncate">{j.nombre}</b><span className="ml-2 text-[9px] font-bold text-slate-400 uppercase">{j.lado}</span></div><span>{elegido ? '✓' : '+'}</span></div><div className="mt-2 flex justify-between text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span className="font-black">{j.valor}M</span></div></button>})}</div>
+              <div className="flex items-center justify-between"><div><h3 className="font-black text-slate-900">Mercado de jugadores</h3><p className="mt-1 text-[10px] text-slate-500">Solo jugadores que ya participan en eventos. El precio se basa en su rendimiento.</p></div><span className="text-[9px] font-black uppercase text-emerald-600">Compra / venta</span></div>
+              <div className="mt-3 space-y-2">{fantasyJugadores.map(j => { const elegido=fantasyEquipo.includes(j.id); const puedeComprar=!elegido && fantasyEquipo.length<2 && fantasySaldo>=j.valor; return <div key={j.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-xs truncate text-slate-900">{j.nombre}</b><span className="text-[8px] font-black uppercase text-slate-400">{j.lado}</span></div><div className="mt-1 flex gap-3 text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span>Nivel {j.nivel.toFixed(1)}</span></div></div><div className="flex items-center gap-2 shrink-0"><b className="text-xs text-slate-900">{j.valor}M</b>{elegido ? <button onClick={() => handleVenderFantasy(j.id)} className="rounded-xl bg-white border border-slate-200 px-2.5 py-1.5 text-[9px] font-black uppercase text-red-600">Vender</button> : <button disabled={!puedeComprar} onClick={() => handleComprarFantasy(j.id)} className={`rounded-xl px-2.5 py-1.5 text-[9px] font-black uppercase ${puedeComprar ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Fichar</button>}</div></div> })}</div>
             </div>
           </div>
         )}
