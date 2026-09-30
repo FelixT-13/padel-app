@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { 
   Calendar, Trophy, User, Settings, Users, 
   MapPin, Award, Plus, Shuffle, Share2, 
-  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch
+  CheckCircle2, Flame, Sparkles, Shield, Trash2, Layers, Lock, Unlock, GitBranch, ArrowLeft, Eye
 } from 'lucide-react';
 
 const JUGADORES_INICIALES = [
@@ -42,11 +42,13 @@ export default function PadelApp() {
   const [ranking, setRanking] = useState(JUGADORES_INICIALES);
   const [inscritos, setInscritos] = useState<number[]>([1]);
 
-  // Sub-pestana para Ranking (Pozos vs Torneos)
+  // Evento activo seleccionado para ver sus pistas/cuadros específicos
+  const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
+
+  // Sub-pestaña para Ranking General (Pozos vs Torneos)
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
 
-  // Selector de formato en la pestaña Pistas/Partidos
-  const [modoVisualizacionPistas, setModoVisualizacionPistas] = useState<'pozo' | 'torneo'>('torneo');
+  // Sub-fases dentro de un torneo de cuadro
   const [faseTorneo, setFaseTorneo] = useState<'grupos' | 'principal' | 'consolacion'>('grupos');
 
   // Seguridad de Organizador
@@ -72,9 +74,9 @@ export default function PadelApp() {
   // Cierre de puntos admin
   const [cierreJugador, setCierreJugador] = useState('Felix');
   const [cierreTipoEvento, setCierreTipoEvento] = useState<'Pozo' | 'Torneo'>('Pozo');
-  const [cierrePista, setCierrePista] = useState('1'); // Para pozos
-  const [cierreCuadro, setCierreCuadro] = useState<'principal' | 'consolacion'>('principal'); // Para torneos
-  const [cierreRondaTorneo, setCierreRondaTorneo] = useState('campeon'); // Para torneos
+  const [cierrePista, setCierrePista] = useState('1');
+  const [cierreCuadro, setCierreCuadro] = useState<'principal' | 'consolacion'>('principal');
+  const [cierreRondaTorneo, setCierreRondaTorneo] = useState('campeon');
   const [cierreGano, setCierreGano] = useState(true);
   const [mensajeExito, setMensajeExito] = useState('');
 
@@ -95,6 +97,7 @@ export default function PadelApp() {
   const handleInscribirse = (id: number) => {
     if (inscritos.includes(id)) {
       setInscritos(inscritos.filter((item) => item !== id));
+      if (eventoActivoId === id) setEventoActivoId(null);
     } else {
       setInscritos([...inscritos, id]);
     }
@@ -116,7 +119,6 @@ export default function PadelApp() {
         default: return 40;
       }
     } else {
-      // Cuadro de Consolación
       switch (ronda) {
         case 'campeon': return 50;
         case 'subcampeon': return 35;
@@ -177,6 +179,7 @@ export default function PadelApp() {
   const handleEliminarEvento = (id: number) => {
     setEventos(eventos.filter(ev => ev.id !== id));
     setInscritos(inscritos.filter(i => i !== id));
+    if (eventoActivoId === id) setEventoActivoId(null);
   };
 
   const handleAgregarJugador = (e: React.FormEvent) => {
@@ -236,6 +239,8 @@ export default function PadelApp() {
       return b.puntosTorneos - a.puntosTorneos;
     }
   });
+
+  const eventoSeleccionado = eventos.find(ev => ev.id === eventoActivoId);
 
   return (
     <div className="min-h-screen bg-[#112948] text-slate-100 font-sans pb-32 max-w-md mx-auto relative border-x border-[#1A3D6C] shadow-2xl">
@@ -318,22 +323,30 @@ export default function PadelApp() {
                       </div>
                     </div>
 
-                    {/* Precio y Botón */}
-                    <div className="pt-1 flex items-center justify-between gap-3">
-                      <div className="bg-[#112948] px-3 py-2 rounded-xl border border-cyan-900">
-                        <span className="text-sm font-black text-white">{evento.precio}€</span>
-                      </div>
-
+                    {/* Botones de Acción */}
+                    <div className="pt-1 flex items-center gap-2">
                       <button
                         onClick={() => handleInscribirse(evento.id)}
-                        className={`flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-md ${
+                        className={`py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-md ${
                           isInscrito
                             ? 'bg-[#1A3D6C] text-cyan-300 border-2 border-cyan-400'
                             : 'bg-cyan-400 text-slate-950 hover:bg-cyan-300'
                         }`}
                       >
-                        {isInscrito ? <><CheckCircle2 className="w-4 h-4" /> Ya estás en lista</> : 'Inscribirme'}
+                        {isInscrito ? <><CheckCircle2 className="w-4 h-4" /> Apuntado</> : 'Inscribirme'}
                       </button>
+
+                      {isInscrito && (
+                        <button
+                          onClick={() => {
+                            setEventoActivoId(evento.id);
+                            setActiveTab('pistas');
+                          }}
+                          className="flex-1 bg-amber-400 hover:bg-amber-300 text-slate-950 py-3 px-3 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                        >
+                          <Eye className="w-4 h-4" /> Entrar al Torneo / Pistas
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -342,44 +355,40 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA PISTAS / PARTIDOS */}
+        {/* PESTAÑA PISTAS / PARTIDOS (ESTRICTAMENTE FILTRADO POR EL TORNEO SELECCIONADO) */}
         {activeTab === 'pistas' && (
           <div className="space-y-4">
-            {inscritos.length === 0 ? (
+            {!eventoActivoId || !eventoSeleccionado ? (
               <div className="bg-[#18365C] border border-cyan-500/30 rounded-3xl p-6 text-center space-y-3 shadow-xl">
                 <Layers className="w-10 h-10 text-cyan-400 mx-auto" />
-                <h3 className="text-base font-bold text-white">No estás inscrito en ningún evento</h3>
-                <p className="text-xs text-cyan-200">Apúntate a un evento para ver los partidos y cruces.</p>
+                <h3 className="text-base font-bold text-white">Ningún torneo seleccionado</h3>
+                <p className="text-xs text-cyan-200">Entra a uno de tus eventos inscritos desde la pestaña Eventos para ver sus pistas, grupos y cuadros.</p>
                 <button 
                   onClick={() => setActiveTab('eventos')}
                   className="bg-cyan-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider mt-2"
                 >
-                  Ver Eventos
+                  Ir a Mis Eventos
                 </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 bg-[#0B1D35] p-1.5 rounded-2xl border border-cyan-900">
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Cabecera del torneo activo con botón para volver */}
+                <div className="bg-[#18365C] border border-cyan-500/30 p-3 rounded-2xl flex justify-between items-center shadow-md">
+                  <div>
+                    <span className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider block">Estás consultando:</span>
+                    <h3 className="text-sm font-black text-white">{eventoSeleccionado.titulo}</h3>
+                  </div>
                   <button
-                    onClick={() => setModoVisualizacionPistas('pozo')}
-                    className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-                      modoVisualizacionPistas === 'pozo' ? 'bg-cyan-400 text-slate-950 shadow-md' : 'text-cyan-200 hover:text-white'
-                    }`}
+                    onClick={() => setEventoActivoId(null)}
+                    className="bg-[#112948] hover:bg-[#0B1D35] text-cyan-300 text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 border border-cyan-900"
                   >
-                    ⚡ Formato Pozo
-                  </button>
-                  <button
-                    onClick={() => setModoVisualizacionPistas('torneo')}
-                    className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-                      modoVisualizacionPistas === 'torneo' ? 'bg-amber-400 text-slate-950 shadow-md' : 'text-cyan-200 hover:text-white'
-                    }`}
-                  >
-                    🏆 Grupos & Cuadros
+                    <ArrowLeft className="w-3.5 h-3.5" /> Cambiar
                   </button>
                 </div>
 
-                {modoVisualizacionPistas === 'pozo' && (
-                  <div className="space-y-4 animate-in fade-in duration-200">
+                {/* SI ES UN POZO */}
+                {eventoSeleccionado.tipo === 'Pozo' && (
+                  <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-black tracking-widest text-cyan-200 uppercase">Pistas de Salida • Pozo</h3>
                       <button
@@ -416,8 +425,9 @@ export default function PadelApp() {
                   </div>
                 )}
 
-                {modoVisualizacionPistas === 'torneo' && (
-                  <div className="space-y-4 animate-in fade-in duration-200">
+                {/* SI ES UN TORNEO (GRUPOS + CUADROS) */}
+                {eventoSeleccionado.tipo === 'Torneo' && (
+                  <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-1 bg-[#112948] p-1 rounded-xl border border-cyan-900">
                       <button
                         onClick={() => setFaseTorneo('grupos')}
@@ -449,7 +459,7 @@ export default function PadelApp() {
                       <div className="space-y-3">
                         <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 rounded-3xl p-4 space-y-3 shadow-xl">
                           <div className="flex justify-between items-center border-b border-cyan-900 pb-2">
-                            <span className="text-xs font-black text-cyan-300 uppercase">Grupo A (Liguilla 4 Parejas)</span>
+                            <span className="text-xs font-black text-cyan-300 uppercase">Grupo A (Liguilla)</span>
                             <span className="text-[10px] bg-cyan-400 text-slate-950 font-bold px-2 py-0.5 rounded">Mín. 3 partidos</span>
                           </div>
                           <div className="space-y-2 text-xs">
@@ -512,12 +522,12 @@ export default function PadelApp() {
           </div>
         )}
 
-        {/* PESTAÑA RANKING */}
+        {/* PESTAÑA RANKING (GENERAL DEL CLUB) */}
         {activeTab === 'rankings' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xs font-black tracking-widest text-cyan-200 uppercase flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-cyan-400" /> Clasificación
+                <Trophy className="w-4 h-4 text-cyan-400" /> Clasificación General del Club
               </h2>
             </div>
 
@@ -697,7 +707,7 @@ export default function PadelApp() {
                   </div>
                 </div>
 
-                {/* CIERRE DE PUNTOS CON DISTINCIÓN PRINCIPAL / CONSOLACIÓN */}
+                {/* CIERRE DE PUNTOS */}
                 <div className="bg-[#18365C]/90 border-2 border-cyan-500/30 p-4 rounded-3xl space-y-3.5 shadow-xl">
                   <h3 className="font-black text-white text-xs uppercase tracking-wider flex items-center gap-2">
                     <Award className="w-4 h-4 text-cyan-400" /> Cierre de Puntos & Clasificación
