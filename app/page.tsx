@@ -91,6 +91,10 @@ export default function PadelApp() {
   const [ladoInscripcion, setLadoInscripcion] = useState<'derecha' | 'reves'>('derecha');
   const [ladoParejaInscripcion, setLadoParejaInscripcion] = useState<'derecha' | 'reves'>('reves');
   const [modoInscripcion, setModoInscripcion] = useState<'pareja' | 'solo'>('pareja');
+  const [mostrarInvitacion, setMostrarInvitacion] = useState(false);
+  const [invitacionNombre, setInvitacionNombre] = useState('');
+  const [invitacionTelefono, setInvitacionTelefono] = useState('');
+  const [invitacionEventoId, setInvitacionEventoId] = useState<number | null>(null);
 
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
@@ -240,6 +244,32 @@ export default function PadelApp() {
     }
     setPartidosEventoMap(prev => ({ ...prev, [eventoId]: partidos }));
     setEventoActivoId(eventoId);
+  };
+
+  const abrirInvitacionCompanero = (eventoId: number) => {
+    setInvitacionEventoId(eventoId);
+    setInvitacionNombre('');
+    setInvitacionTelefono('');
+    setMostrarInvitacion(true);
+  };
+
+  const enviarInvitacionCompanero = () => {
+    const evento = eventos.find(ev => ev.id === invitacionEventoId);
+    const nombre = invitacionNombre.trim();
+    const telefono = invitacionTelefono.replace(/\D/g, '');
+    if (!evento || !nombre) {
+      setMensajeExito('Indica al menos el nombre de tu compañero.');
+      setTimeout(() => setMensajeExito(''), 2500);
+      return;
+    }
+
+    const enlace = `${window.location.origin}/?invitar=${evento.id}`;
+    const texto = `¡Hola ${nombre}! Te invito a jugar conmigo en Padel Arena\n\n${evento.titulo}\n${evento.fecha} · ${evento.club}\n\nRegístrate en Padel Arena desde este enlace y después podremos aparecer como pareja: ${enlace}`;
+    const url = telefono ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setMostrarInvitacion(false);
+    setMensajeExito(`Invitación preparada para ${nombre}.`);
+    setTimeout(() => setMensajeExito(''), 3500);
   };
 
   const handleConfirmarInscripcion = (eventoId: number) => {
@@ -792,9 +822,9 @@ export default function PadelApp() {
 
   // 3. APLICACIÓN PRINCIPAL
   return (
-    <div className="min-h-screen bg-[#f4f7f5] text-slate-900 font-sans pb-32 max-w-md mx-auto relative border-x border-slate-200 shadow-2xl">
+    <div className="min-h-screen bg-[#eef3ef] text-slate-900 font-sans pb-32 w-full">
       {/* Marcador Superior */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md p-4 border-b-2 border-emerald-200 flex justify-between items-center shadow-lg">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md p-4 border-b-2 border-emerald-200 flex justify-between items-center shadow-lg mx-auto w-full max-w-6xl">
         <div className="flex items-center gap-2.5">
           <div>
             <h1 className="text-base font-black tracking-wider text-slate-900 uppercase">
@@ -817,7 +847,7 @@ export default function PadelApp() {
         </div>
       </header>
 
-      <main className="p-4 space-y-5">
+      <main className="mx-auto w-full max-w-5xl p-4 md:p-6 space-y-5">
 
         {mensajeExito && (
           <div className="bg-emerald-500 text-white p-3 rounded-2xl text-xs font-black animate-bounce shadow-lg text-center">
@@ -1165,11 +1195,12 @@ export default function PadelApp() {
                         </div>
                         {modoInscripcion === 'pareja' ? (
                           <>
-                            <select
-                              value={nombreParejaInput}
-                              onChange={e => setNombreParejaInput(e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-semibold text-slate-900"
-                            >
+                            <div className="flex gap-2">
+                              <select
+                                value={nombreParejaInput}
+                                onChange={e => setNombreParejaInput(e.target.value)}
+                                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-semibold text-slate-900"
+                              >
                               <option value="">Selecciona tu pareja</option>
                               {ranking
                                 .filter(j => j.id !== (ranking.find(x => x.nombre.trim().toLowerCase() === miPerfil.nombreCompleto.trim().toLowerCase())?.id || ''))
@@ -1177,12 +1208,14 @@ export default function PadelApp() {
                                 .map(j => (
                                   <option key={j.id} value={j.nombre}>{j.nombre}</option>
                                 ))}
-                            </select>
+                              </select>
+                              <button type="button" onClick={() => abrirInvitacionCompanero(evento.id)} className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-black uppercase text-white">Invitar</button>
+                            </div>
                             <p className="mt-1.5 text-[9px] font-semibold text-slate-500">
-                              Solo aparecen usuarios que ya tienen cuenta en Padel Arena y todavía están disponibles para este evento. Si tu compañero aún no tiene cuenta, primero debe darse de alta.
+                              Selecciona un usuario registrado. Si no está en Padel Arena, puedes invitarlo directamente por WhatsApp.
                             </p>
-                            <div className="mt-2 rounded-xl border border-cyan-200 bg-cyan-50 p-2.5 text-[9px] font-bold text-cyan-800">
-                              💡 ¿No aparece tu compañero? Que se registre en Padel Arena y complete su perfil. Después podrá aparecer aquí como pareja disponible.
+                            <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-[9px] font-bold text-emerald-800">
+                              💡 Se registrará primero y, una vez tenga cuenta, podrá seleccionarse como pareja. En la versión con BBDD la invitación quedará vinculada automáticamente al evento.
                             </div>
                           </>
                         ) : (
@@ -1291,7 +1324,7 @@ export default function PadelApp() {
                 <div className="text-right shrink-0"><span className="block text-2xl font-black text-emerald-600">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-slate-400">pts Fantasy</span></div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-slate-50 p-3"><span className="block text-[9px] font-black uppercase text-slate-400">Saldo disponible</span><b className="mt-1 block text-lg text-slate-900">{fantasySaldo.toFixed(1)}M</b></div>
+                <div className="rounded-2xl bg-slate-50 p-3"><span className="block text-[9px] font-black uppercase text-slate-400">Presupuesto inicial</span><b className="mt-1 block text-lg text-slate-900">10,0 M</b><span className="text-[9px] text-slate-500">Disponible: {fantasySaldo.toFixed(1)} M</span></div>
                 <div className="rounded-2xl bg-emerald-50 p-3"><span className="block text-[9px] font-black uppercase text-emerald-600">Plazas de equipo</span><b className="mt-1 block text-lg text-emerald-800">{fantasyEquipo.length}/2</b></div>
               </div>
             </div>
@@ -1306,8 +1339,8 @@ export default function PadelApp() {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between"><div><h3 className="font-black text-slate-900">Mercado de hoy</h3><p className="mt-1 text-[10px] text-slate-500">Solo salen jugadores con al menos un torneo disputado. Valor mínimo 1,5 M · máximo 2 fichajes.</p></div><span className="text-[9px] font-black uppercase text-emerald-600">Compra / venta</span></div>
-              <div className="mt-3 space-y-2">{fantasyMercado.map(j => { const elegido=fantasyEquipo.includes(j.id); const puedeComprar=!elegido && fantasyEquipo.length<2 && fantasySaldo>=j.valor; return <div key={j.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-xs truncate text-slate-900">{j.nombre}</b><span className="text-[8px] font-black uppercase text-slate-400">{j.lado}</span></div><div className="mt-1 flex gap-3 text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span>Nivel {j.nivel.toFixed(1)}</span></div></div><div className="flex items-center gap-2 shrink-0"><b className="text-xs text-slate-900">{j.valor}M</b>{elegido ? <button onClick={() => handleVenderFantasy(j.id)} className="rounded-xl bg-white border border-slate-200 px-2.5 py-1.5 text-[9px] font-black uppercase text-red-600">Vender</button> : <button disabled={!puedeComprar} onClick={() => handleComprarFantasy(j.id)} className={`rounded-xl px-2.5 py-1.5 text-[9px] font-black uppercase ${puedeComprar ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Fichar</button>}</div></div> })}</div>
+              <div className="flex items-center justify-between"><div><h3 className="font-black text-slate-900">Mercado de hoy</h3><p className="mt-1 text-[10px] text-slate-500">Solo salen jugadores con al menos un torneo disputado. Todos parten de 1,5 M y su valor aumenta con los puntos obtenidos en torneos.</p></div><span className="text-[9px] font-black uppercase text-emerald-600">Compra / venta</span></div>
+              <div className="mt-3 space-y-2">{fantasyMercado.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-center text-xs font-bold text-slate-500">Todavía no hay jugadores con un torneo disputado. Cuando se cierre el primer torneo aparecerán aquí con un valor mínimo de 1,5 M.</div> : fantasyMercado.map(j => { const elegido=fantasyEquipo.includes(j.id); const puedeComprar=!elegido && fantasyEquipo.length<2 && fantasySaldo>=j.valor; return <div key={j.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-xs truncate text-slate-900">{j.nombre}</b><span className="text-[8px] font-black uppercase text-slate-400">{j.lado}</span></div><div className="mt-1 flex gap-3 text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span>Nivel {j.nivel.toFixed(1)}</span></div></div><div className="flex items-center gap-2 shrink-0"><b className="text-xs text-slate-900">{j.valor}M</b>{elegido ? <button onClick={() => handleVenderFantasy(j.id)} className="rounded-xl bg-white border border-slate-200 px-2.5 py-1.5 text-[9px] font-black uppercase text-red-600">Vender</button> : <button disabled={!puedeComprar} onClick={() => handleComprarFantasy(j.id)} className={`rounded-xl px-2.5 py-1.5 text-[9px] font-black uppercase ${puedeComprar ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Fichar</button>}</div></div> })}</div>
             </div>
           </div>
         )}
@@ -1587,13 +1620,30 @@ export default function PadelApp() {
         )}
       </main>
 
-      <div className="px-4 pb-4 pt-1 text-center">
+      {mostrarInvitacion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div><span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-600">Invitar compañero</span><h3 className="mt-1 text-xl font-black text-slate-900">Que se una a tu pareja</h3><p className="mt-1 text-[10px] text-slate-500">Le enviaremos un enlace para registrarse en Padel Arena y poder jugar contigo.</p></div>
+              <button type="button" onClick={() => setMostrarInvitacion(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <input value={invitacionNombre} onChange={e => setInvitacionNombre(e.target.value)} placeholder="Nombre del compañero" className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-900" />
+              <input value={invitacionTelefono} onChange={e => setInvitacionTelefono(e.target.value)} placeholder="Teléfono (opcional)" inputMode="tel" className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-900" />
+              <button type="button" onClick={enviarInvitacionCompanero} className="w-full rounded-xl bg-emerald-500 px-3 py-3 text-[10px] font-black uppercase text-white">Invitar por WhatsApp</button>
+              <p className="text-[9px] text-slate-400">Esta versión genera la invitación. La vinculación automática de la inscripción se hará cuando conectemos la BBDD.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mx-auto w-full max-w-5xl px-4 pb-4 pt-1 text-center">
         <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-400">PADEL ARENA · Eventos · Partidos · Ranking · Fantasy</span>
       </div>
 
       {/* Navegación Inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/96 backdrop-blur-xl border-t border-slate-200 shadow-[0_-10px_30px_rgba(15,23,42,.06)] p-2 max-w-md mx-auto z-40">
-        <div className="flex justify-around items-center gap-0.5">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/96 backdrop-blur-xl border-t border-slate-200 shadow-[0_-10px_30px_rgba(15,23,42,.06)] p-2 z-40">
+        <div className="mx-auto flex max-w-5xl justify-around items-center gap-0.5">
           {[
             { id: 'inicio', icon: Sparkles, label: 'Inicio' },
             { id: 'eventos', icon: Calendar, label: 'Eventos' },
