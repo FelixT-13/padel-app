@@ -31,10 +31,10 @@ const EVENTOS_INICIALES = [
 ];
 
 const JUGADORES_INICIALES = [
-  { id: '1', nombre: 'Felix Gomez', telefono: '600123456', nivel: 4.0, pozos: 6, puntosPozos: 580, torneosJugados: 3, puntosTorneos: 340, racha: '3W', lado: 'derecha', fantasyPuntos: 920 },
-  { id: '2', nombre: 'Angel Ruiz', telefono: '611223344', nivel: 3.9, pozos: 5, puntosPozos: 490, torneosJugados: 2, puntosTorneos: 280, racha: '1W', lado: 'reves', fantasyPuntos: 770 },
-  { id: '3', nombre: 'Lidia Martin', telefono: '622334455', nivel: 3.8, pozos: 5, puntosPozos: 460, torneosJugados: 4, puntosTorneos: 410, racha: '2W', lado: 'derecha', fantasyPuntos: 870 },
-  { id: '4', nombre: 'Rober Sanchez', telefono: '633445566', nivel: 3.5, pozos: 4, puntosPozos: 350, torneosJugados: 2, puntosTorneos: 210, racha: '1L', lado: 'reves', fantasyPuntos: 560 },
+  { id: '1', nombre: 'Felix Gomez', telefono: '600123456', nivel: 4.0, pozos: 6, puntosPozos: 580, torneosJugados: 3, puntosTorneos: 340, racha: '3W', lado: 'derecha', fantasyPuntos: 920, valorFantasy: 4.9 },
+  { id: '2', nombre: 'Angel Ruiz', telefono: '611223344', nivel: 3.9, pozos: 5, puntosPozos: 490, torneosJugados: 2, puntosTorneos: 280, racha: '1W', lado: 'reves', fantasyPuntos: 770, valorFantasy: 4.3 },
+  { id: '3', nombre: 'Lidia Martin', telefono: '622334455', nivel: 3.8, pozos: 5, puntosPozos: 460, torneosJugados: 4, puntosTorneos: 410, racha: '2W', lado: 'derecha', fantasyPuntos: 870, valorFantasy: 5.6 },
+  { id: '4', nombre: 'Rober Sanchez', telefono: '633445566', nivel: 3.5, pozos: 4, puntosPozos: 350, torneosJugados: 2, puntosTorneos: 210, racha: '1L', lado: 'reves', fantasyPuntos: 560, valorFantasy: 3.6 },
 ];
 
 export default function PadelApp() {
@@ -57,7 +57,7 @@ export default function PadelApp() {
 
   // Fantasy de Pádel: minijuego local para el prototipo.
   const [fantasyEquipo, setFantasyEquipo] = useState<string[]>([]);
-  const [fantasyPresupuesto, setFantasyPresupuesto] = useState(100);
+  const [fantasyPresupuesto, setFantasyPresupuesto] = useState(10);
   const [fantasyJornada, setFantasyJornada] = useState<'actual' | 'historico'>('actual');
   const [jugadorSeleccionadoPista, setJugadorSeleccionadoPista] = useState(0);
 
@@ -139,7 +139,8 @@ export default function PadelApp() {
           puntosTorneos: 0,
           racha: '-',
           lado: miPerfil.lado,
-          fantasyPuntos: 0
+          fantasyPuntos: 0,
+          valorFantasy: null
         }];
       }
       return prev;
@@ -512,6 +513,12 @@ export default function PadelApp() {
     }
   };
 
+  // Valor Fantasy: todos parten de 1,5 M. Cada resultado de torneo
+  // añade valor según los puntos obtenidos: 100 puntos = +1,0 M.
+  const calcularIncrementoValorFantasy = (puntosTorneo: number) => {
+    return Number((puntosTorneo / 100).toFixed(1));
+  };
+
   const handleGuardarCierre = (e: React.FormEvent) => {
     e.preventDefault();
     let pts = 0;
@@ -526,9 +533,17 @@ export default function PadelApp() {
       prev.map((j) => {
         if (j.nombre === cierreJugador) {
           if (cierreTipoEvento === 'Pozo') {
-            return { ...j, puntosPozos: j.puntosPozos + pts, pozos: j.pozos + 1, fantasyPuntos: (j.fantasyPuntos ?? 0) + pts };
+            return { ...j, puntosPozos: j.puntosPozos + pts, pozos: j.pozos + 1 };
           } else {
-            return { ...j, puntosTorneos: j.puntosTorneos + pts, torneosJugados: j.torneosJugados + 1, fantasyPuntos: (j.fantasyPuntos ?? 0) + pts };
+            const valorActual = typeof j.valorFantasy === 'number' ? j.valorFantasy : 1.5;
+            const valorFantasy = Number((valorActual + calcularIncrementoValorFantasy(pts)).toFixed(1));
+            return {
+              ...j,
+              puntosTorneos: j.puntosTorneos + pts,
+              torneosJugados: j.torneosJugados + 1,
+              fantasyPuntos: (j.fantasyPuntos ?? 0) + pts,
+              valorFantasy
+            };
           }
         }
         return j;
@@ -615,15 +630,15 @@ export default function PadelApp() {
     }
   };
 
-  // Fantasy: solo entran jugadores que hayan sido inscritos en al menos un evento.
-  // Sus puntos Fantasy salen de los puntos que realmente consiguen en eventos.
-  const idsParticipantes = new Set(Object.values(participantesEventoMap).flat());
+  // Fantasy: un jugador no aparece en el mercado hasta haber disputado
+  // al menos un torneo y tener un valor Fantasy calculado.
+  // El valor mínimo es 1,5 M y el presupuesto inicial de cada usuario es 10 M.
   const fantasyJugadores = ranking
-    .filter((j) => idsParticipantes.has(j.id))
+    .filter((j) => j.torneosJugados > 0 && typeof j.valorFantasy === 'number')
     .map((j) => ({
       ...j,
-      valor: Number((12 + j.nivel * 4 + (j.fantasyPuntos ?? 0) / 250).toFixed(1)),
-      fantasyPts: j.fantasyPuntos ?? (j.puntosTorneos + j.puntosPozos),
+      valor: Math.max(1.5, Number(j.valorFantasy)),
+      fantasyPts: j.fantasyPuntos ?? j.puntosTorneos,
     }));
   // Mercado diario de 4 jugadores. En la versión con Supabase esto pasará a salir de fantasy_mercado.
   const fantasyMercado = fantasyJugadores.slice(0, 4);
@@ -1149,8 +1164,11 @@ export default function PadelApp() {
                                 ))}
                             </select>
                             <p className="mt-1.5 text-[9px] font-semibold text-slate-500">
-                              Solo aparecen jugadores disponibles en este evento. El compañero de otro evento no se arrastra aquí.
+                              Solo aparecen usuarios que ya tienen cuenta en Padel Arena y todavía están disponibles para este evento. Si tu compañero aún no tiene cuenta, primero debe darse de alta.
                             </p>
+                            <div className="mt-2 rounded-xl border border-cyan-200 bg-cyan-50 p-2.5 text-[9px] font-bold text-cyan-800">
+                              💡 ¿No aparece tu compañero? Que se registre en Padel Arena y complete su perfil. Después podrá aparecer aquí como pareja disponible.
+                            </div>
                           </>
                         ) : (
                           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-800"><b>Sin pareja</b><br/>Te añadimos a la lista de jugadores solos. Cuando haya otra persona sola en este evento, el sistema formará automáticamente la pareja.</div>
@@ -1254,7 +1272,7 @@ export default function PadelApp() {
           <div className="space-y-5 animate-in fade-in duration-300">
             <div className="rounded-3xl bg-white border border-emerald-200 p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
-                <div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Fantasy Padel</span><h2 className="mt-1 text-2xl font-black text-slate-900">Fíchalos. Véndelos. Compite.</h2><p className="mt-1 text-xs text-slate-500">Solo puedes llevar 2 jugadores. Gasta tu presupuesto, compite y vende cuando quieras recuperar valor.</p></div>
+                <div><span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Fantasy Padel</span><h2 className="mt-1 text-2xl font-black text-slate-900">Fíchalos. Véndelos. Compite.</h2><p className="mt-1 text-xs text-slate-500">Empiezas con 10 M. Solo aparecen jugadores que ya han disputado un torneo. Su valor parte de 1,5 M y sube según sus resultados.</p></div>
                 <div className="text-right shrink-0"><span className="block text-2xl font-black text-emerald-600">{fantasyPts}</span><span className="text-[9px] uppercase font-bold text-slate-400">pts Fantasy</span></div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2">
@@ -1266,14 +1284,14 @@ export default function PadelApp() {
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3"><div><h3 className="font-black text-slate-900">Mi equipo</h3><p className="text-[10px] text-slate-500">Compra 2 jugadores para competir esta jornada.</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-600">{fantasyEquipo.length}/2</span></div>
               {fantasySeleccionados.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-center"><div className="text-2xl">🏓</div><p className="mt-1 text-xs font-black text-slate-800">Aún no tienes jugadores</p><p className="text-[10px] text-slate-500">Fícha jugadores de eventos en los que ya participan.</p></div>
+                <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-center"><div className="text-2xl">🏓</div><p className="mt-1 text-xs font-black text-slate-800">Aún no tienes jugadores</p><p className="text-[10px] text-slate-500">Los fichajes se desbloquean cuando el jugador ya ha disputado su primer torneo.</p></div>
               ) : (
                 <div className="space-y-2">{fantasySeleccionados.map(j => <div key={j.id} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3"><div><b className="block text-xs text-slate-900">{j.nombre}</b><span className="text-[9px] font-bold text-slate-500">{j.lado === 'derecha' ? 'Derecha' : 'Revés'} · {j.fantasyPts} pts</span></div><div className="flex items-center gap-2"><b className="text-xs text-emerald-700">{j.valor}M</b><button onClick={() => handleVenderFantasy(j.id)} className="rounded-lg bg-white border border-slate-200 px-2 py-1 text-[9px] font-black uppercase text-slate-600 hover:border-red-200 hover:text-red-600">Vender</button></div></div>)}</div>
               )}
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between"><div><h3 className="font-black text-slate-900">Mercado de hoy</h3><p className="mt-1 text-[10px] text-slate-500">4 jugadores disponibles hoy. Los fichajes se mantienen hasta que los vendas.</p></div><span className="text-[9px] font-black uppercase text-emerald-600">Compra / venta</span></div>
+              <div className="flex items-center justify-between"><div><h3 className="font-black text-slate-900">Mercado de hoy</h3><p className="mt-1 text-[10px] text-slate-500">Solo salen jugadores con al menos un torneo disputado. Valor mínimo 1,5 M · máximo 2 fichajes.</p></div><span className="text-[9px] font-black uppercase text-emerald-600">Compra / venta</span></div>
               <div className="mt-3 space-y-2">{fantasyMercado.map(j => { const elegido=fantasyEquipo.includes(j.id); const puedeComprar=!elegido && fantasyEquipo.length<2 && fantasySaldo>=j.valor; return <div key={j.id} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><b className="text-xs truncate text-slate-900">{j.nombre}</b><span className="text-[8px] font-black uppercase text-slate-400">{j.lado}</span></div><div className="mt-1 flex gap-3 text-[9px] text-slate-500"><span>{j.fantasyPts} pts</span><span>Nivel {j.nivel.toFixed(1)}</span></div></div><div className="flex items-center gap-2 shrink-0"><b className="text-xs text-slate-900">{j.valor}M</b>{elegido ? <button onClick={() => handleVenderFantasy(j.id)} className="rounded-xl bg-white border border-slate-200 px-2.5 py-1.5 text-[9px] font-black uppercase text-red-600">Vender</button> : <button disabled={!puedeComprar} onClick={() => handleComprarFantasy(j.id)} className={`rounded-xl px-2.5 py-1.5 text-[9px] font-black uppercase ${puedeComprar ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Fichar</button>}</div></div> })}</div>
             </div>
           </div>
