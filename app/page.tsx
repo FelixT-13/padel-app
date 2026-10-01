@@ -683,11 +683,13 @@ export default function PadelApp() {
   };
 
   const clasePosicionPista = (indice: number) => {
+    // Las cuatro posiciones usan TOP para que el centrado vertical sea simétrico.
+    // Con bottom + translate-y-1/2 la pareja inferior quedaba desplazada hacia arriba.
     const posiciones = [
-      'left-[17%] top-[28%]',
-      'left-[17%] bottom-[28%]',
-      'right-[17%] top-[28%]',
-      'right-[17%] bottom-[28%]'
+      'left-[17%] top-[27%]',
+      'left-[17%] top-[73%]',
+      'right-[17%] top-[27%]',
+      'right-[17%] top-[73%]'
     ];
     return posiciones[indice] || posiciones[0];
   };
