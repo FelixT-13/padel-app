@@ -100,6 +100,7 @@ export default function PadelApp() {
   const [invitacionTextoGenerado, setInvitacionTextoGenerado] = useState('');
 
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
+  const [tipoPartidosFiltro, setTipoPartidosFiltro] = useState<'Pozo' | 'Torneo'>('Pozo');
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
   const [faseTorneo, setFaseTorneo] = useState<'grupos' | 'principal' | 'consolacion'>('grupos');
 
@@ -729,7 +730,10 @@ export default function PadelApp() {
   const fantasyGastado = fantasySeleccionados.reduce((sum, j) => sum + j.valor, 0);
   const fantasySaldo = fantasyPresupuesto - fantasyGastado;
   const fantasyPts = fantasySeleccionados.reduce((sum, j) => sum + j.fantasyPts, 0);
-  const partidosDelEvento = eventoActivoId ? (partidosEventoMap[eventoActivoId] || []) : [];
+  const eventosConMiInscripcion = eventos.filter(ev => Boolean(miInscripcionEventoMap[ev.id]));
+  const eventosDelTipoPartidos = eventosConMiInscripcion.filter(ev => ev.tipo === tipoPartidosFiltro);
+  const eventoActivoValido = eventoSeleccionado && eventoSeleccionado.tipo === tipoPartidosFiltro ? eventoSeleccionado : null;
+  const partidosDelEvento = eventoActivoValido ? (partidosEventoMap[eventoActivoValido.id] || []) : [];
   const partidosVisibles = esOrganizador
     ? partidosDelEvento
     : partidosDelEvento.filter((p) => [...p.pareja1, ...p.pareja2].includes(miPerfil.nombreCompleto));
@@ -935,42 +939,86 @@ export default function PadelApp() {
         {/* PESTAÑA MIS PARTIDOS */}
         {activeTab === 'pistas' && (
           <div className="space-y-5 animate-in fade-in duration-300">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Mi competición</p>
-                <h2 className="mt-1 text-2xl font-black text-slate-900">Mis partidos</h2>
-                <p className="mt-1 text-xs text-slate-500">Solo ves los partidos en los que participas.</p>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Mi competición</p>
+              <div className="mt-1 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">Mis partidos</h2>
+                  <p className="mt-1 text-xs text-slate-500">Consulta por separado tus partidos de Pozos y Torneos.</p>
+                </div>
+                <button onClick={() => setActiveTab('eventos')} className="self-start rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-600 shadow-sm">Ver eventos</button>
               </div>
-              {eventoActivoId && <button onClick={() => setActiveTab('eventos')} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-600">Cambiar evento</button>}
             </div>
-            {!eventoActivoId || !eventoSeleccionado ? (
-              <div className="rounded-3xl border border-emerald-200 bg-white p-7 text-center shadow-sm">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">🏟️</div>
-                <h3 className="mt-3 text-base font-black text-slate-900">Todavía no tienes un evento seleccionado</h3>
-                <p className="mt-1 text-xs text-slate-500">Apúntate a un evento y aquí aparecerán tus pistas, pareja, rivales y horarios.</p>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+                {(['Pozo', 'Torneo'] as const).map((tipo) => {
+                  const activo = tipoPartidosFiltro === tipo;
+                  const cantidad = eventosConMiInscripcion.filter(ev => ev.tipo === tipo).length;
+                  return (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => {
+                        setTipoPartidosFiltro(tipo);
+                        const primerEvento = eventosConMiInscripcion.find(ev => ev.tipo === tipo);
+                        setEventoActivoId(primerEvento?.id ?? null);
+                      }}
+                      className={`rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-wide transition-all ${activo ? (tipo === 'Pozo' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-amber-400 text-slate-900 shadow-sm') : 'text-slate-500 hover:bg-white'}`}
+                    >
+                      {tipo === 'Pozo' ? 'Pozos' : 'Torneos'} <span className="ml-1 opacity-70">{cantidad}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {eventosDelTipoPartidos.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">{tipoPartidosFiltro === 'Pozo' ? '🏟️' : '🏆'}</div>
+                <h3 className="mt-3 text-base font-black text-slate-900">No estás inscrito en ningún {tipoPartidosFiltro.toLowerCase()}</h3>
+                <p className="mt-1 text-xs text-slate-500">Ve a Eventos para apuntarte a un {tipoPartidosFiltro.toLowerCase()} y aparecerá aquí.</p>
                 <button onClick={() => setActiveTab('eventos')} className="mt-4 rounded-xl bg-emerald-500 px-4 py-2.5 text-[10px] font-black uppercase text-white shadow-md">Ver eventos</button>
               </div>
             ) : (
               <>
                 <div className="rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className={`inline-flex rounded-full px-2 py-1 text-[9px] font-black uppercase ${eventoSeleccionado.tipo === 'Pozo' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{eventoSeleccionado.tipo}</span>
-                      <h3 className="mt-2 text-lg font-black text-slate-900">{eventoSeleccionado.titulo}</h3>
-                      <p className="mt-1 text-[10px] text-slate-500">{eventoSeleccionado.fecha} · {eventoSeleccionado.club}</p>
-                    </div>
-                    {esOrganizador && <button onClick={handleMezclarPistas} className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-black uppercase text-white"><Shuffle className="h-3.5 w-3.5" /> Sortear</button>}
-                  </div>
+                  <label className="mb-2 block text-[9px] font-black uppercase tracking-widest text-slate-500">Evento</label>
+                  <select
+                    value={eventoActivoValido?.id ?? ''}
+                    onChange={(e) => setEventoActivoId(Number(e.target.value))}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-black text-slate-900 focus:border-emerald-400 focus:outline-none"
+                  >
+                    {eventosDelTipoPartidos.map(ev => (
+                      <option key={ev.id} value={ev.id}>{ev.titulo}</option>
+                    ))}
+                  </select>
+                  {eventoActivoValido && (
+                    <p className="mt-2 text-[10px] text-slate-500">{eventoActivoValido.fecha} · {eventoActivoValido.club}</p>
+                  )}
                 </div>
-                {partidosVisibles.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-6 text-center">
-                    <div className="text-3xl">⏳</div>
-                    <h3 className="mt-2 text-sm font-black text-slate-900">Pendiente de sorteo</h3>
-                    <p className="mt-1 text-[10px] text-slate-600">Tu inscripción está registrada. Cuando haya suficientes parejas, el organizador podrá realizar el sorteo.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {partidosVisibles.map((p, matchIndex) => {
+
+                {eventoActivoValido && (
+                  <>
+                    <div className="rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <span className={`inline-flex rounded-full px-2 py-1 text-[9px] font-black uppercase ${eventoActivoValido.tipo === 'Pozo' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{eventoActivoValido.tipo}</span>
+                          <h3 className="mt-2 text-lg font-black text-slate-900">{eventoActivoValido.titulo}</h3>
+                          <p className="mt-1 text-[10px] text-slate-500">{eventoActivoValido.fecha} · {eventoActivoValido.club}</p>
+                        </div>
+                        {esOrganizador && <button onClick={handleMezclarPistas} className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-black uppercase text-white"><Shuffle className="h-3.5 w-3.5" /> Sortear</button>}
+                      </div>
+                    </div>
+                    {partidosVisibles.length === 0 ? (
+                      <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-6 text-center">
+                        <div className="text-3xl">⏳</div>
+                        <h3 className="mt-2 text-sm font-black text-slate-900">Pendiente de sorteo</h3>
+                        <p className="mt-1 text-[10px] text-slate-600">Tu inscripción está registrada. Cuando haya suficientes parejas, el organizador podrá realizar el sorteo.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {partidosVisibles.map((p, matchIndex) => {
                       const jugadores = [p.pareja1?.[0], p.pareja1?.[1], p.pareja2?.[0], p.pareja2?.[1]].filter(Boolean);
                       return (
                         <article key={p.id} className="rounded-3xl border-2 border-emerald-200 bg-white p-4 shadow-lg">
@@ -978,7 +1026,7 @@ export default function PadelApp() {
                             <div><span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">{p.fase === 'pozo' ? 'Pozo' : p.fase === 'grupos' ? 'Fase de grupos' : 'Eliminatoria'}</span><h3 className="mt-0.5 text-sm font-black text-slate-900">{p.nombre}</h3></div>
                             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black text-slate-600">{p.hora}</span>
                           </div>
-                          <div className="relative mx-auto aspect-[1.65/1] max-w-[520px] overflow-hidden rounded-[22px] border-[7px] border-slate-300 bg-emerald-600 shadow-inner">
+                          <div className="relative mx-auto w-full aspect-[16/9] max-w-[680px] overflow-hidden rounded-[22px] border-[7px] border-slate-300 bg-emerald-600 shadow-inner">
                             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px)] bg-[size:12px_12px]" />
                             <div className="absolute inset-[7%] rounded-lg border-2 border-white/95" />
                             <div className="absolute left-1/2 top-[7%] bottom-[7%] border-l-2 border-white/95" />
@@ -1000,6 +1048,8 @@ export default function PadelApp() {
                     })}
                   </div>
                 )}
+              </>
+              )}
               </>
             )}
           </div>
@@ -1034,7 +1084,7 @@ export default function PadelApp() {
                       <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} parejas inscritas</span>
                       {inscrito ? (
                         <div className="flex items-center gap-2">
-                          <button onClick={() => { setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
+                          <button onClick={() => { setTipoPartidosFiltro(evento.tipo); setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
                           {miInscripcionEventoMap[evento.id] && (
                             <button onClick={() => handleCancelarInscripcion(evento.id)} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-600">Borrarme</button>
                           )}
