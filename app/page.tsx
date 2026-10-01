@@ -97,6 +97,7 @@ export default function PadelApp() {
   const [invitacionTelefono, setInvitacionTelefono] = useState('');
   const [invitacionEventoId, setInvitacionEventoId] = useState<number | null>(null);
   const [eventoInvitacionPendienteId, setEventoInvitacionPendienteId] = useState<number | null>(null);
+  const [invitacionTextoGenerado, setInvitacionTextoGenerado] = useState('');
 
   const [eventoActivoId, setEventoActivoId] = useState<number | null>(null);
   const [tipoRanking, setTipoRanking] = useState<'pozos' | 'torneos'>('pozos');
@@ -287,11 +288,24 @@ export default function PadelApp() {
 
     const enlace = `${window.location.origin}/?invitar=${evento.id}`;
     const texto = `¡Hola ${nombre}! Te invito a jugar conmigo en Padel Arena\n\n${evento.titulo}\n${evento.fecha} · ${evento.club}\n\n👉 Regístrate desde aquí y podrás unirte al evento conmigo:\n${enlace}`;
-    const url = telefono
-      ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`
-      : `https://wa.me/?text=${encodeURIComponent(texto)}`;
 
-    window.location.assign(url);
+    // Guardamos siempre el texto por si el usuario necesita copiarlo manualmente.
+    setInvitacionTextoGenerado(texto);
+
+    // WhatsApp funciona mejor abriendo una nueva pestaña desde la acción directa del usuario.
+    // Usamos api.whatsapp.com porque es más consistente en escritorio y móvil.
+    const url = telefono
+      ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(texto)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+
+    const ventana = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!ventana) {
+      setMensajeExito('El navegador ha bloqueado la ventana de WhatsApp. Usa "Copiar invitación".');
+      setTimeout(() => setMensajeExito(''), 4000);
+    } else {
+      setMensajeExito('WhatsApp se ha abierto con la invitación preparada.');
+      setTimeout(() => setMensajeExito(''), 3000);
+    }
   };
 
   const handleConfirmarInscripcion = (eventoId: number) => {
@@ -1497,7 +1511,30 @@ export default function PadelApp() {
               <input value={invitacionNombre} onChange={e => setInvitacionNombre(e.target.value)} placeholder="Nombre del compañero" className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-900" />
               <input value={invitacionTelefono} onChange={e => setInvitacionTelefono(e.target.value)} placeholder="Teléfono (opcional)" inputMode="tel" className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-semibold text-slate-900" />
               <button type="button" onClick={enviarInvitacionCompanero} className="w-full rounded-xl bg-emerald-500 px-3 py-3 text-[10px] font-black uppercase text-white">Invitar por WhatsApp</button>
-              <p className="text-[9px] text-slate-400">Esta versión genera la invitación. La vinculación automática de la inscripción se hará cuando conectemos la BBDD.</p>
+              {invitacionTextoGenerado && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(invitacionTextoGenerado);
+                      setMensajeExito('Invitación copiada. Puedes pegarla en WhatsApp.');
+                      setTimeout(() => setMensajeExito(''), 3000);
+                    } catch {
+                      setMensajeExito('No se pudo copiar automáticamente. Selecciona y copia el texto.');
+                      setTimeout(() => setMensajeExito(''), 3500);
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-[10px] font-black uppercase text-slate-700"
+                >
+                  Copiar invitación
+                </button>
+              )}
+              {invitacionTextoGenerado && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[9px] leading-relaxed text-slate-500 whitespace-pre-wrap">
+                  {invitacionTextoGenerado}
+                </div>
+              )}
+              <p className="text-[9px] text-slate-400">El botón abre WhatsApp en otra pestaña. Si tu navegador lo bloquea, usa "Copiar invitación".</p>
             </div>
           </div>
         </div>
