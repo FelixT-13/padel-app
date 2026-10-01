@@ -30,7 +30,22 @@ const EVENTOS_INICIALES = [
   }
 ];
 
-const JUGADORES_INICIALES = [
+type Jugador = {
+  id: string;
+  nombre: string;
+  telefono: string;
+  nivel: number;
+  pozos: number;
+  puntosPozos: number;
+  torneosJugados: number;
+  puntosTorneos: number;
+  racha: string;
+  lado: 'derecha' | 'reves';
+  fantasyPuntos: number;
+  valorFantasy: number | null;
+};
+
+const JUGADORES_INICIALES: Jugador[] = [
   { id: '1', nombre: 'Felix Gomez', telefono: '600123456', nivel: 4.0, pozos: 6, puntosPozos: 580, torneosJugados: 3, puntosTorneos: 340, racha: '3W', lado: 'derecha', fantasyPuntos: 920, valorFantasy: 4.9 },
   { id: '2', nombre: 'Angel Ruiz', telefono: '611223344', nivel: 3.9, pozos: 5, puntosPozos: 490, torneosJugados: 2, puntosTorneos: 280, racha: '1W', lado: 'reves', fantasyPuntos: 770, valorFantasy: 4.3 },
   { id: '3', nombre: 'Lidia Martin', telefono: '622334455', nivel: 3.8, pozos: 5, puntosPozos: 460, torneosJugados: 4, puntosTorneos: 410, racha: '2W', lado: 'derecha', fantasyPuntos: 870, valorFantasy: 5.6 },
@@ -53,7 +68,7 @@ export default function PadelApp() {
   });
 
   const [activeTab, setActiveTab] = useState<'inicio' | 'eventos' | 'pistas' | 'rankings' | 'fantasy' | 'admin' | 'perfil'>('inicio');
-  const [ranking, setRanking] = useState(JUGADORES_INICIALES);
+  const [ranking, setRanking] = useState<Jugador[]>(JUGADORES_INICIALES);
 
   // Fantasy de Pádel: minijuego local para el prototipo.
   const [fantasyEquipo, setFantasyEquipo] = useState<string[]>([]);
