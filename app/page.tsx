@@ -1084,7 +1084,7 @@ export default function PadelApp() {
                       <span className="text-[10px] font-bold text-slate-600">{evento.plazas_ocupadas}/{evento.plazas_totales} parejas inscritas</span>
                       {inscrito ? (
                         <div className="flex items-center gap-2">
-                          <button onClick={() => { setTipoPartidosFiltro(evento.tipo); setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
+                          <button onClick={() => { setTipoPartidosFiltro(evento.tipo as 'Pozo' | 'Torneo'); setEventoActivoId(evento.id); setActiveTab('pistas'); }} className="rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white">Ver mis partidos</button>
                           {miInscripcionEventoMap[evento.id] && (
                             <button onClick={() => handleCancelarInscripcion(evento.id)} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-600">Borrarme</button>
                           )}
