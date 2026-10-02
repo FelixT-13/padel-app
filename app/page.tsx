@@ -1017,43 +1017,210 @@ export default function PadelApp() {
         
         {/* INICIO / DASHBOARD */}
         {activeTab === 'inicio' && (
-          <div className="space-y-5 animate-in fade-in duration-300">
-            <section className="relative overflow-hidden rounded-[32px] bg-[#101b17] p-5 text-white shadow-[0_18px_45px_rgba(16,185,129,.20)]">
-              <div className="absolute inset-0 opacity-70" style={{backgroundImage:'radial-gradient(circle at 85% 15%, rgba(190,242,100,.35), transparent 28%), linear-gradient(135deg, rgba(16,185,129,.9), rgba(16,27,23,.98) 58%)'}} />
-              <div className="relative z-10 max-w-2xl">
-                <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em]">Padel Arena</span>
-                <h2 className="mt-3 text-3xl font-black leading-none tracking-tight">Donde empieza el próximo partido.</h2>
-                <p className="mt-3 max-w-xl text-xs font-medium leading-relaxed text-white/75">Eventos, partidos, rankings y Fantasy en un solo sitio.</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button onClick={() => setActiveTab('eventos')} className="rounded-xl bg-lime-300 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-[#101b17]">Ver eventos</button>
-                  <button onClick={() => setActiveTab('pistas')} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white">Mis partidos</button>
-                  <button onClick={() => setActiveTab('fantasy')} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white">Fantasy</button>
-                </div>
-              </div>
-            </section>
+  <div className="space-y-5 animate-in fade-in duration-300">
+    <section className="relative overflow-hidden rounded-[32px] bg-[#101b17] p-5 text-white shadow-[0_18px_45px_rgba(16,185,129,.20)]">
+      <div
+        className="absolute inset-0 opacity-70"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 85% 15%, rgba(190,242,100,.35), transparent 28%), linear-gradient(135deg, rgba(16,185,129,.9), rgba(16,27,23,.98) 58%)',
+        }}
+      />
 
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"><span className="text-[9px] font-black uppercase text-slate-400">Eventos</span><b className="mt-1 block text-2xl font-black text-slate-900">{eventos.length}</b><span className="text-[9px] font-semibold text-emerald-600">activos</span></div>
-              <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"><span className="text-[9px] font-black uppercase text-slate-400">Jugadores</span><b className="mt-1 block text-2xl font-black text-slate-900">{ranking.length}</b><span className="text-[9px] font-semibold text-emerald-600">en ranking</span></div>
-              <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"><span className="text-[9px] font-black uppercase text-slate-400">Mis partidos</span><b className="mt-1 block text-2xl font-black text-slate-900">{partidosVisibles.length}</b><span className="text-[9px] font-semibold text-emerald-600">asignados</span></div>
-              <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"><span className="text-[9px] font-black uppercase text-slate-400">Fantasy</span><b className="mt-1 block text-2xl font-black text-slate-900">{fantasyEquipo.length}/2</b><span className="text-[9px] font-semibold text-emerald-600">fichajes</span></div>
-            </section>
+      <div className="relative z-10 max-w-2xl">
+        <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em]">
+          PADEL ARENA · MI ZONA
+        </span>
 
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button onClick={() => setActiveTab('eventos')} className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm hover:-translate-y-0.5 transition">
-                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Siguiente paso</span>
-                <h3 className="mt-1 text-lg font-black text-slate-900">Encuentra tu próximo evento</h3>
-                <p className="mt-1 text-xs text-slate-500">Apúntate a un pozo o torneo y después consulta tus partidos desde una única pantalla.</p>
-              </button>
-              <button onClick={() => setActiveTab('fantasy')} className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm hover:-translate-y-0.5 transition">
-                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Fantasy</span>
-                <h3 className="mt-1 text-lg font-black text-slate-900">Gestiona tu equipo</h3>
-                <p className="mt-1 text-xs text-slate-500">Empiezas con 10 M. Solo aparecen jugadores que ya hayan disputado un torneo.</p>
-              </button>
-            </section>
+        <h2 className="mt-3 text-3xl font-black leading-none tracking-tight">
+          Hola, {miPerfil.nombreCompleto.split(' ')[0]} 👋
+        </h2>
+
+        <p className="mt-2 text-xl font-black leading-tight text-lime-300">
+          Donde empieza tu próximo partido.
+        </p>
+
+        <p className="mt-3 max-w-xl text-xs font-medium leading-relaxed text-white/75">
+          Consulta tus eventos, partidos, ranking y equipo Fantasy desde un solo sitio.
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('eventos')}
+            className="rounded-xl bg-lime-300 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-[#101b17]"
+          >
+            Ver eventos
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('pistas')}
+            className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white"
+          >
+            Mis partidos
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('fantasy')}
+            className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white"
+          >
+            Fantasy
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <button
+        type="button"
+        onClick={() => setActiveTab('eventos')}
+        className="rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+            Eventos
+          </span>
+          <Calendar size={16} className="text-emerald-600" />
+        </div>
+
+        <b className="mt-2 block text-2xl font-black text-slate-900">
+          {eventos.length}
+        </b>
+
+        <span className="text-[9px] font-semibold text-emerald-600">
+          disponibles
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('rankings')}
+        className="rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+            Jugadores
+          </span>
+          <Users size={16} className="text-emerald-600" />
+        </div>
+
+        <b className="mt-2 block text-2xl font-black text-slate-900">
+          {ranking.length}
+        </b>
+
+        <span className="text-[9px] font-semibold text-emerald-600">
+          en ranking
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('pistas')}
+        className="rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+            Mis partidos
+          </span>
+          <Trophy size={16} className="text-emerald-600" />
+        </div>
+
+        <b className="mt-2 block text-2xl font-black text-slate-900">
+          {partidosVisibles.length}
+        </b>
+
+        <span className="text-[9px] font-semibold text-emerald-600">
+          asignados
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('fantasy')}
+        className="rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+            Fantasy
+          </span>
+          <Sparkles size={16} className="text-emerald-600" />
+        </div>
+
+        <b className="mt-2 block text-2xl font-black text-slate-900">
+          {fantasyEquipo.length}/2
+        </b>
+
+        <span className="text-[9px] font-semibold text-emerald-600">
+          jugadores elegidos
+        </span>
+      </button>
+    </section>
+
+    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <button
+        type="button"
+        onClick={() => setActiveTab('eventos')}
+        className="group rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">
+              Próximo paso
+            </span>
+
+            <h3 className="mt-1 text-lg font-black text-slate-900">
+              Encuentra tu próximo evento
+            </h3>
+
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              Apúntate a un pozo o torneo y después consulta tus partidos desde una única pantalla.
+            </p>
           </div>
-        )}
 
+          <div className="rounded-2xl bg-emerald-50 p-2.5 text-emerald-600 transition group-hover:scale-105">
+            <Calendar size={18} />
+          </div>
+        </div>
+
+        <span className="mt-4 inline-flex items-center text-[9px] font-black uppercase tracking-wide text-emerald-700">
+          Ver eventos →
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('fantasy')}
+        className="group rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600">
+              Fantasy
+            </span>
+
+            <h3 className="mt-1 text-lg font-black text-slate-900">
+              Gestiona tu equipo
+            </h3>
+
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              Empiezas con 10 M. Solo aparecen jugadores que ya hayan disputado un torneo.
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-lime-50 p-2.5 text-lime-700 transition group-hover:scale-105">
+            <Sparkles size={18} />
+          </div>
+        </div>
+
+        <span className="mt-4 inline-flex items-center text-[9px] font-black uppercase tracking-wide text-emerald-700">
+          Abrir Fantasy →
+        </span>
+      </button>
+    </section>
+  </div>
+)}
         {/* PESTAÑA MIS PARTIDOS */}
         {activeTab === 'pistas' && (
           <div className="space-y-5 animate-in fade-in duration-300">
